@@ -104,6 +104,28 @@ Create `v0.1/paintober_pipeline.ipynb` — a single Jupyter notebook implementin
 
 ---
 
+## Label Collision Fix Plan
+
+### Root Causes
+1. Centroid can land outside a concave/crescent contour → number appears in wrong region
+2. Multiple contours (different colors) whose centroids are within a few px of each other → numbers stack
+3. Very thin/elongated regions → centroid near/on the contour line itself
+
+### Fix Strategy
+1. **Guaranteed-inside point**: Use `cv2.pointPolygonTest` to verify centroid is inside; if not, find the nearest interior point via distance transform on the contour mask
+2. **Global label placement grid / occupancy map**: Track placed label positions in a set; before drawing each label, check all prior positions — skip if any is within `MIN_LABEL_SPACING` pixels (configurable, e.g. 12 px)
+3. **Label sizing by area**: Scale font size by `sqrt(area)` so tiny regions get tiny (or no) labels
+
+### New parameter
+```
+MIN_LABEL_SPACING = 12  # minimum pixel distance between any two label centres
+```
+
+### Modified function signature
+draw_outline gains no new public API — fix is internal, plus new parameter in parameters cell.
+
+---
+
 ## ipywidgets Bonus Section
 - `@interact(k=(4,24,2), min_area=(50,500,50), epsilon=(0.001,0.01,0.001))`
 - Full pipeline re-run inside widget callback
