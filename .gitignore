@@ -51,3 +51,5 @@ outputs/
 .env
 .env.*
 !.env.example
+
+*.pyc
