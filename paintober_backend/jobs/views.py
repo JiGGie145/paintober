@@ -208,7 +208,7 @@ class JobDownloadView(APIView):
         except signing.BadSignature:
             return Response({"detail": "Invalid download token."}, status=status.HTTP_403_FORBIDDEN)
 
-        if payload.get("job_id") != job_id or payload.get("file") != file_key:
+        if payload.get("job_id") != str(job_id) or payload.get("file") != file_key:
             return Response({"detail": "Token mismatch."}, status=status.HTTP_403_FORBIDDEN)
 
         field = _FILE_FIELD_MAP.get(file_key)
