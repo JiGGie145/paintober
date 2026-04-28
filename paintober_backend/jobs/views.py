@@ -13,8 +13,10 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiTypes, extend_schema
+
 from .models import Job, JobStatus
-from .serializers import JobCreateSerializer, JobListSerializer, JobStatusSerializer
+from .serializers import JobCreateResponseSerializer, JobCreateSerializer, JobListSerializer, JobStatusSerializer
 from .throttles import JobCreationThrottle
 
 logger = logging.getLogger("jobs")
@@ -51,9 +53,11 @@ class JobCreateView(APIView):
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [AllowAny]
     throttle_classes = [JobCreationThrottle]
+    serializer_class = JobCreateSerializer
 
     MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
 
+    @extend_schema(responses={201: JobCreateResponseSerializer})
     def post(self, request: Request) -> Response:
         # Ensure session exists for anonymous users so we can scope jobs
         if not request.session.session_key:
@@ -142,7 +146,9 @@ class JobCreateView(APIView):
 
 class JobDetailView(APIView):
     permission_classes = [AllowAny]
+    serializer_class = JobStatusSerializer
 
+    @extend_schema(operation_id="job_retrieve")
     def get(self, request: Request, job_id: str) -> Response:
         owner_filter = _get_owner_filter(request)
         try:
@@ -155,7 +161,9 @@ class JobDetailView(APIView):
 
 class JobListView(APIView):
     permission_classes = [AllowAny]
+    serializer_class = JobListSerializer
 
+    @extend_schema(operation_id="job_list")
     def get(self, request: Request) -> Response:
         owner_filter = _get_owner_filter(request)
         jobs = Job.objects.filter(**owner_filter)
@@ -166,6 +174,31 @@ class JobListView(APIView):
 class JobDownloadView(APIView):
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="file_key",
+                location=OpenApiParameter.PATH,
+                enum=["outline", "color", "palette", "zip"],
+                description="Output file to download.",
+            ),
+            OpenApiParameter(
+                name="token",
+                location=OpenApiParameter.QUERY,
+                type=str,
+                required=True,
+                description="Signed download token from the job detail response. Expires after 1 hour.",
+            ),
+        ],
+        responses={
+            200: OpenApiResponse(
+                response=OpenApiTypes.BINARY,
+                description="PNG image or ZIP archive.",
+            ),
+            403: OpenApiResponse(description="Token expired or invalid."),
+            404: OpenApiResponse(description="Job not done or file not found."),
+        },
+    )
     def get(self, request: Request, job_id: str, file_key: str) -> Response:
         token = request.query_params.get("token", "")
         try:

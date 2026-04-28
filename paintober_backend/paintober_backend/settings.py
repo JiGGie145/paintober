@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'drf_spectacular',
     'django_apscheduler',
     'jobs',
     'pipeline',
@@ -81,6 +82,19 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'paintober_backend.wsgi.application'
+
+# ── Django REST Framework ──────────────────────────────────────────────────
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# ── drf-spectacular (OpenAPI / Swagger) ────────────────────────────────────
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Paintober API',
+    'DESCRIPTION': 'REST API for the Paintober image-processing pipeline.',
+    'VERSION': '0.1.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
 
 
 # Database

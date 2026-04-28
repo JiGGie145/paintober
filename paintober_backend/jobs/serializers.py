@@ -1,6 +1,19 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from .models import Job
+from .models import Job, JobStatus
+
+
+class DownloadUrlsSerializer(serializers.Serializer):
+    outline = serializers.URLField()
+    color = serializers.URLField()
+    palette = serializers.URLField()
+    zip = serializers.URLField()
+
+
+class JobCreateResponseSerializer(serializers.Serializer):
+    job_id = serializers.UUIDField()
+    status = serializers.ChoiceField(choices=JobStatus.choices)
 
 
 class JobCreateSerializer(serializers.Serializer):
@@ -51,6 +64,7 @@ class JobStatusSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    @extend_schema_field(DownloadUrlsSerializer)
     def get_download_urls(self, obj):
         if obj.status != "done":
             return None
