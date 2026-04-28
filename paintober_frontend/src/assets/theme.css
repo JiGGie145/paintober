@@ -1,0 +1,136 @@
+/* ============================================================
+   PAINTOBER — SINGLE SOURCE OF TRUTH
+   All colors, typography, spacing, shadows, and animations
+   live here. No component may hard-code any of these values.
+   ============================================================ */
+
+/* --- Color Palette ----------------------------------------- */
+:root {
+  --color-bg:        #1B1C1E;   /* App background — semi-black  */
+  --color-lime:      #CFFF04;   /* Primary CTA, active states   */
+  --color-indigo:    #8D7EFF;   /* Headers, nav containers       */
+  --color-lavender:  #B87EEE;   /* Secondary buttons, in-progress */
+  --color-snow:      #EDEBEE;   /* Card backgrounds, body text  */
+  --color-midnight:  #0B4550;   /* Hard shadows, icon fills     */
+  --color-pink:      #FF6B9D;   /* Decorative blobs only        */
+}
+
+/* --- Typography -------------------------------------------- */
+:root {
+  --font-display: 'Raleway', sans-serif;   /* headers, CTAs   */
+  --font-body:    'Urbanist', sans-serif;  /* body, UI, labels */
+
+  --text-hero:       3.5rem;
+  --text-heading:    2.5rem;
+  --text-subheading: 1.5rem;
+  --text-body:       1.125rem;
+  --text-sm:         0.875rem;
+
+  --weight-black:    900;
+  --weight-extrabold:800;
+  --weight-bold:     700;
+  --weight-medium:   500;
+  --weight-normal:   400;
+
+  --leading-tight:   1.2;
+  --leading-normal:  1.6;
+}
+
+/* --- Spacing ----------------------------------------------- */
+:root {
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  48px;
+  --space-2xl: 80px;
+}
+
+/* --- Sticker Borders --------------------------------------- */
+:root {
+  --border-width-sticker: 3px;
+  --border-sticker-snow:    3px solid var(--color-snow);
+  --border-sticker-lime:    3px solid var(--color-lime);
+  --border-sticker-indigo:  3px solid var(--color-indigo);
+  --border-sticker-lavender:3px solid var(--color-lavender);
+  --border-sticker-bg:      3px solid var(--color-bg);
+  --border-sticker-thick:   4px solid var(--color-bg);
+}
+
+/* --- Sticker Hard Shadows (0 blur = physical layering) ----- */
+:root {
+  --shadow-sticker-sm: 3px 3px 0px 0px var(--color-midnight);
+  --shadow-sticker-md: 4px 4px 0px 0px var(--color-midnight);
+  --shadow-sticker-lg: 6px 6px 0px 0px var(--color-midnight);
+  --shadow-sticker-sm-dark: 2px 2px 0px 0px var(--color-bg);
+  --shadow-sticker-md-dark: 3px 3px 0px 0px var(--color-bg);
+}
+
+/* --- Border Radii ------------------------------------------ */
+:root {
+  --radius-card:   20px;
+  --radius-button: 20px;
+  --radius-badge:  12px;
+  --radius-circle: 50%;
+  --radius-sm:     8px;
+  --radius-md:     16px;
+}
+
+/* --- Z-Index Scale ----------------------------------------- */
+:root {
+  --z-background: 0;
+  --z-content:    1;
+  --z-overlay:    10;
+  --z-panel:      20;
+  --z-modal:      30;
+}
+
+/* --- Logo Clip Path (octagon / chamfered corners) ---------- */
+:root {
+  --clip-octagon: polygon(
+    0px 8px,
+    8px 8px,
+    8px 0px,
+    calc(100% - 8px) 0px,
+    calc(100% - 8px) 8px,
+    100% 8px,
+    100% calc(100% - 8px),
+    calc(100% - 8px) calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    8px 100%,
+    8px calc(100% - 8px),
+    0px calc(100% - 8px)
+  );
+  --clip-star: polygon(
+    50% 0%, 61% 35%, 98% 35%, 68% 57%,
+    79% 91%, 50% 70%, 21% 91%, 32% 57%,
+    2%  35%, 39% 35%
+  );
+}
+
+/* --- Transitions ------------------------------------------- */
+:root {
+  --transition-fast:   150ms ease;
+  --transition-normal: 250ms ease;
+}
+
+/* --- Animations -------------------------------------------- */
+@keyframes float {
+  0%,  100% { transform: translateY(0px); }
+  50%        { transform: translateY(-20px); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
