@@ -16,11 +16,10 @@ const submitError = ref(null)
 // Default parameter values
 const params = ref({
   k_colors: 12,
-  line_thickness: 3,
-  min_region_area: 150,
-  min_label_spacing: 20,
+  line_thickness: 1,
+  min_region_area: 200,
   apply_gaussian: true,
-  contour_epsilon: 0.01,
+  contour_epsilon: 0.002,
   use_user_palette: false,
   allow_color_reuse: false,
   user_palette_hex: [],
@@ -44,7 +43,6 @@ async function submit() {
     formData.append('k_colors', params.value.k_colors)
     formData.append('line_thickness', params.value.line_thickness)
     formData.append('min_region_area', params.value.min_region_area)
-    formData.append('min_label_spacing', params.value.min_label_spacing)
     formData.append('apply_gaussian', params.value.apply_gaussian)
     formData.append('contour_epsilon', params.value.contour_epsilon)
 

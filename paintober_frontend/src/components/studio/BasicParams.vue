@@ -68,35 +68,14 @@ function update(key, value) {
         id="min_region_area"
         type="range"
         :value="params.min_region_area"
-        min="1"
+        min="0"
         max="1000"
         step="10"
         class="param-range"
         @input="update('min_region_area', Number($event.target.value))"
       />
       <div class="param-range-labels">
-        <span>1</span><span>1000</span>
-      </div>
-    </div>
-
-    <!-- min_label_spacing -->
-    <div class="param-row">
-      <label class="param-label" :for="'min_label_spacing'">
-        Label Spacing
-        <span class="param-value">{{ params.min_label_spacing }} px</span>
-      </label>
-      <input
-        id="min_label_spacing"
-        type="range"
-        :value="params.min_label_spacing"
-        min="1"
-        max="100"
-        step="1"
-        class="param-range"
-        @input="update('min_label_spacing', Number($event.target.value))"
-      />
-      <div class="param-range-labels">
-        <span>1</span><span>100</span>
+        <span>0</span><span>1000</span>
       </div>
     </div>
 
@@ -110,8 +89,8 @@ function update(key, value) {
         id="contour_epsilon"
         type="number"
         :value="params.contour_epsilon"
-        min="0.0001"
-        max="0.05"
+        min="0.001"
+        max="0.02"
         step="0.001"
         class="param-number"
         @input="update('contour_epsilon', Number($event.target.value))"
