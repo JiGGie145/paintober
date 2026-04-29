@@ -151,6 +151,9 @@ class JobDetailView(APIView):
     @extend_schema(operation_id="job_retrieve")
     def get(self, request: Request, job_id: str) -> Response:
         owner_filter = _get_owner_filter(request)
+        if "pk" in owner_filter:
+            # No session and no authenticated user — cannot own any job
+            raise Http404
         try:
             job = Job.objects.get(pk=job_id, **owner_filter)
         except Job.DoesNotExist:
