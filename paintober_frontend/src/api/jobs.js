@@ -1,10 +1,11 @@
 /**
  * Paintober API client.
- * All requests go through the Vite proxy (/api → http://localhost:8000).
+ * In development, VITE_API_BASE is empty and requests go through the Vite proxy.
+ * In production, set VITE_API_BASE to the full backend URL (e.g. https://my-api.example.com).
  * CSRF token is read fresh from the cookie on every unsafe request.
  */
 
-const BASE = '/api'
+const BASE = (import.meta.env.VITE_API_BASE ?? '') + '/api'
 
 // ----------------------------------------------------------------
 // CSRF helper — reads csrftoken cookie set by Django

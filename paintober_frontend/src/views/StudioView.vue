@@ -17,7 +17,11 @@ const { start: startPoller } = useJobPoller()
 const rehydrating = ref(false)
 
 async function hydrateFromParam(jobId) {
-  if (!jobId) return
+  if (!jobId) {
+    // No param — clear any active job and show the upload form
+    jobStore.reset()
+    return
+  }
   if (jobStore.id === jobId) return  // already loaded — nothing to do
   rehydrating.value = true
   jobStore.reset()

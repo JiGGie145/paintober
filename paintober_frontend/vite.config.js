@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'https://66-228-41-226.ip.linodeusercontent.com',
         changeOrigin: true,
       },
     },
