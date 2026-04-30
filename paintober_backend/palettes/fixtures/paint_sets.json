@@ -1,0 +1,72 @@
+[
+  {
+    "model": "palettes.paintset",
+    "pk": "beginner_acrylic_12",
+    "fields": {
+      "name": "Beginner Acrylic Set (12)",
+      "description": "Typical starter acrylic kit found in most art stores.",
+      "paint_type": "acrylic",
+      "tube_count": 12
+    }
+  },
+  {
+    "model": "palettes.paintset",
+    "pk": "studio_acrylic_24",
+    "fields": {
+      "name": "Acrylic Studio Set (24)",
+      "description": "Expanded acrylic palette for hobby painters and events.",
+      "paint_type": "acrylic",
+      "tube_count": 24
+    }
+  },
+  {
+    "model": "palettes.paintset",
+    "pk": "pastel_picnic",
+    "fields": {
+      "name": "Pastel Picnic Palette",
+      "description": "Soft romantic tones perfect for picnics, weddings, and couples events.",
+      "paint_type": "acrylic",
+      "tube_count": 12
+    }
+  },
+  {
+    "model": "palettes.paintset",
+    "pk": "vibrant_party",
+    "fields": {
+      "name": "Vibrant Party Palette",
+      "description": "Bright, punchy colours for sip-and-paint nights and group events.",
+      "paint_type": "acrylic",
+      "tube_count": 12
+    }
+  },
+  {
+    "model": "palettes.paintset",
+    "pk": "earthy_neutrals",
+    "fields": {
+      "name": "Earthy Neutrals",
+      "description": "Perfect for landscapes, portraits, and cozy natural scenes.",
+      "paint_type": "acrylic",
+      "tube_count": 12
+    }
+  },
+  {
+    "model": "palettes.paintset",
+    "pk": "staedtler_noris_12",
+    "fields": {
+      "name": "Noris-Style Colouring Pencils (12)",
+      "description": "Classic school colouring pencil palette inspired by Staedtler Noris sets.",
+      "paint_type": "pencil",
+      "tube_count": 12
+    }
+  },
+  {
+    "model": "palettes.paintset",
+    "pk": "staedtler_noris_24",
+    "fields": {
+      "name": "Noris-Style Colouring Pencils (24)",
+      "description": "Expanded Noris-style palette with extra shades and skin tones.",
+      "paint_type": "pencil",
+      "tube_count": 24
+    }
+  }
+]

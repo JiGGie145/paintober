@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'django_apscheduler',
     'jobs',
     'pipeline',
+    'palettes',
 ]
 
 MIDDLEWARE = [
