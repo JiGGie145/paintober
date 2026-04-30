@@ -1,5 +1,6 @@
 <script setup>
 import { RouterLink } from 'vue-router'
+import LogoPng from '@/assets/Paintober-Logo.png'
 
 const emit = defineEmits(['toggle-history'])
 </script>
@@ -7,14 +8,15 @@ const emit = defineEmits(['toggle-history'])
 <template>
   <header class="app-header">
     <RouterLink to="/" class="logo-link" aria-label="Paintober home">
-      <div class="logo-badge">
-        <span class="logo-text">PAINTOBER</span>
-      </div>
+      <img class="logo-img" :src="LogoPng" alt="Paintober" />
     </RouterLink>
 
     <nav class="nav">
       <RouterLink to="/studio" class="nav-cta">
-        Start Creating →
+        <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+        <span class="nav-label">Start Creating →</span>
       </RouterLink>
     </nav>
 
@@ -32,7 +34,7 @@ const emit = defineEmits(['toggle-history'])
           stroke-linejoin="round"
         />
       </svg>
-      <span>History</span>
+      <span class="history-label">History</span>
     </button>
   </header>
 </template>
@@ -54,24 +56,14 @@ const emit = defineEmits(['toggle-history'])
 .logo-link {
   text-decoration: none;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
-.logo-badge {
-  display: inline-block;
-  padding: var(--space-sm) var(--space-lg);
-  background-color: var(--color-indigo);
-  border: var(--border-sticker-snow);
-  box-shadow: var(--shadow-sticker-md);
-  clip-path: var(--clip-octagon);
-}
-
-.logo-text {
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-black);
-  color: var(--color-snow);
-  letter-spacing: 0.1em;
-  text-shadow: 2px 2px 0 var(--color-midnight);
+.logo-img {
+  height: 40px;
+  width: auto;
+  display: block;
 }
 
 /* Nav */
@@ -129,5 +121,37 @@ const emit = defineEmits(['toggle-history'])
 
 .history-btn:active {
   transform: scale(0.97);
+}
+
+/* ── Mobile: icon-only nav ──────────────────────────────────── */
+.nav-icon {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .nav-label,
+  .history-label {
+    display: none;
+  }
+
+  .nav-icon {
+    display: block;
+  }
+
+  .nav-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+  }
+
+  .history-btn {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+  }
 }
 </style>

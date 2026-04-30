@@ -13,15 +13,17 @@
 -->
 <script setup>
 import { RouterLink } from 'vue-router'
+import LogoPng from '@/assets/Paintober-Logo.png'
+
+// Swatch colours used purely for the illustrative Before/After mockup grid
+const swatchColors = ['#FF6B9D', '#8D7EFF', '#CFFF04', '#B87EEE']
 </script>
 
 <template>
   <div class="hero-content">
 
-    <!-- Logo badge -->
-    <div class="logo-badge">
-      <span class="logo-text">PAINTOBER</span>
-    </div>
+    <!-- Logo -->
+    <img class="logo-img" :src="LogoPng" alt="Paintober" />
 
     <!-- Headline -->
     <h1 class="headline">
@@ -47,7 +49,8 @@ import { RouterLink } from 'vue-router'
         <span class="mockup-badge mockup-badge--indigo">BEFORE</span>
       </div>
 
-      <span class="mockup-arrow">→</span>
+      <span class="mockup-arrow mockup-arrow--h" aria-hidden="true">→</span>
+      <span class="mockup-arrow mockup-arrow--v" aria-hidden="true">↓</span>
 
       <div class="mockup-card mockup-card--after">
         <div class="mockup-card__inner mockup-card__inner--after">
@@ -65,11 +68,6 @@ import { RouterLink } from 'vue-router'
   </div>
 </template>
 
-<script>
-// Swatch colours used purely for the illustrative Before/After mockup grid
-const swatchColors = ['#FF6B9D', '#8D7EFF', '#CFFF04', '#B87EEE']
-</script>
-
 <style scoped>
 /* ── Layout wrapper ─────────────────────────────────────────── */
 .hero-content {
@@ -84,23 +82,13 @@ const swatchColors = ['#FF6B9D', '#8D7EFF', '#CFFF04', '#B87EEE']
   width: 100%;
 }
 
-/* ── Logo badge ─────────────────────────────────────────────── */
-.logo-badge {
-  display: inline-block;
-  padding: var(--space-sm) var(--space-xl);
-  background-color: var(--color-indigo);
-  border: var(--border-sticker-snow);
-  box-shadow: var(--shadow-sticker-lg);
-  clip-path: var(--clip-octagon);
-}
-
-.logo-text {
-  font-family: var(--font-display);
-  font-size: var(--text-hero);
-  font-weight: var(--weight-black);
-  color: var(--color-snow);
-  text-shadow: 4px 4px 0 var(--color-midnight);
-  letter-spacing: 0.05em;
+/* ── Logo ──────────────────────────────────────────────────── */
+.logo-img {
+  height: clamp(60px, 12vw, 100px);
+  width: auto;
+  max-width: 100%;
+  display: block;
+  margin: 0 auto;
 }
 
 /* ── Headline ───────────────────────────────────────────────── */
@@ -237,5 +225,30 @@ const swatchColors = ['#FF6B9D', '#8D7EFF', '#CFFF04', '#B87EEE']
   color: var(--color-lime);
   text-shadow: 3px 3px 0 var(--color-midnight);
   line-height: 1;
+}
+
+.mockup-arrow--v {
+  display: none;
+}
+
+/* ── Mobile ───────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .mockup-row {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .mockup-arrow--h {
+    display: none;
+  }
+
+  .mockup-arrow--v {
+    display: block;
+  }
+
+  .mockup-card {
+    width: clamp(160px, 70vw, 240px);
+    height: clamp(160px, 70vw, 240px);
+  }
 }
 </style>
