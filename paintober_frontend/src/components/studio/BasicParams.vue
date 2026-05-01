@@ -93,7 +93,7 @@ function update(key, value) {
         id="contour_epsilon"
         type="number"
         :value="params.contour_epsilon"
-        min="0.001"
+        min="0.0"
         max="0.02"
         step="0.001"
         class="param-number"
