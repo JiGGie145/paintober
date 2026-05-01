@@ -251,6 +251,12 @@ function formatSize(bytes) {
   gap: var(--space-xs);
 }
 
+@media (max-width: 480px) {
+  .dropzone__info {
+    display: none;
+  }
+}
+
 .dropzone__filename {
   font-family: var(--font-display);
   font-size: var(--text-body);
