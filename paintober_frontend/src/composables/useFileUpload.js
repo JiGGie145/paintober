@@ -8,13 +8,15 @@ const MAX_SIZE_BYTES = 50 * 1024 * 1024 // 50 MB
  * Performs client-side validation before any API call is made.
  *
  * Usage:
- *   const { file, error, isDragging, onDrop, onFileInput, clear } = useFileUpload()
+ *   const { file, previewUrl, error, isDragging, onDrop, onFileInput, clear } = useFileUpload()
  */
 export function useFileUpload() {
   /** @type {import('vue').Ref<File|null>} */
   const file = ref(null)
   /** @type {import('vue').Ref<string|null>} */
   const error = ref(null)
+  /** @type {import('vue').Ref<string|null>} */
+  const previewUrl = ref(null)
   const isDragging = ref(false)
 
   const isValid = computed(() => file.value !== null && error.value === null)
@@ -32,15 +34,19 @@ export function useFileUpload() {
   function setFile(candidate) {
     const validationError = validate(candidate)
     if (validationError) {
+      if (previewUrl.value) { URL.revokeObjectURL(previewUrl.value); previewUrl.value = null }
       file.value = null
       error.value = validationError
     } else {
+      if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
       file.value = candidate
+      previewUrl.value = URL.createObjectURL(candidate)
       error.value = null
     }
   }
 
   function clear() {
+    if (previewUrl.value) { URL.revokeObjectURL(previewUrl.value); previewUrl.value = null }
     file.value = null
     error.value = null
     isDragging.value = false
@@ -79,6 +85,7 @@ export function useFileUpload() {
   return {
     file,
     error,
+    previewUrl,
     isDragging,
     isValid,
     onDragEnter,
