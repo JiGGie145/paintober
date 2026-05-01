@@ -26,7 +26,7 @@ const params = ref({
   line_thickness: 1,
   min_region_area: 200,
   apply_gaussian: true,
-  contour_epsilon: 0.002,
+  contour_epsilon: 0.0,
   use_user_palette: false,
   allow_color_reuse: false,
   user_palette_hex: [],
