@@ -21,7 +21,7 @@ class JobCreateSerializer(serializers.Serializer):
     # Pipeline parameters — all optional, pipeline defaults apply
     k_colors = serializers.IntegerField(min_value=2, max_value=32, required=False)
     min_region_area = serializers.IntegerField(min_value=1, required=False)
-    contour_epsilon = serializers.FloatField(min_value=0.0001, max_value=0.05, required=False)
+    contour_epsilon = serializers.FloatField(min_value=0.0, max_value=0.05, required=False)
     line_thickness = serializers.IntegerField(min_value=1, max_value=10, required=False)
     apply_gaussian = serializers.BooleanField(required=False)
     min_label_spacing = serializers.IntegerField(min_value=1, max_value=100, required=False)
