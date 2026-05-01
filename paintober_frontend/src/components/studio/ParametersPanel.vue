@@ -1,12 +1,15 @@
 <script setup>
 import { ref } from 'vue'
 import BasicParams from './BasicParams.vue'
-import ByopSection from './ByopSection.vue'
 
 const props = defineProps({
   params: {
     type: Object,
     required: true,
+  },
+  paletteMode: {
+    type: String,
+    default: 'auto',
   },
 })
 
@@ -16,13 +19,6 @@ const open = ref(false)
 
 function updateParams(updated) {
   emit('update:params', updated)
-}
-
-function toggleByop() {
-  emit('update:params', {
-    ...props.params,
-    use_user_palette: !props.params.use_user_palette,
-  })
 }
 </script>
 
@@ -42,27 +38,7 @@ function toggleByop() {
 
     <!-- Collapsible body -->
     <div v-show="open" class="params-panel__body">
-      <BasicParams :params="params" @update:params="updateParams" />
-
-      <!-- BYOP toggle row -->
-      <div class="params-panel__byop-toggle">
-        <span class="params-panel__byop-label">Use my own colour palette</span>
-        <button
-          class="toggle"
-          :class="{ 'toggle--on': params.use_user_palette }"
-          role="switch"
-          :aria-checked="params.use_user_palette"
-          @click="toggleByop"
-        >
-          <span class="toggle__thumb" />
-        </button>
-      </div>
-
-      <ByopSection
-        v-if="params.use_user_palette"
-        :params="params"
-        @update:params="updateParams"
-      />
+      <BasicParams :params="params" :paletteMode="paletteMode" @update:params="updateParams" />
     </div>
   </div>
 </template>
@@ -126,23 +102,7 @@ function toggleByop() {
 }
 
 /* ── BYOP toggle row ────────────────────────────────────────── */
-.params-panel__byop-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: var(--space-md);
-  background-color: color-mix(in srgb, var(--color-indigo) 12%, transparent);
-  border-radius: var(--radius-md);
-  border: 2px dashed var(--color-indigo);
-}
-
-.params-panel__byop-label {
-  font-family: var(--font-body);
-  font-size: var(--text-body);
-  font-weight: var(--weight-bold);
-  color: var(--color-snow);
-}
+/* (removed — BYOP is now handled by PaletteSelector) */
 
 /* ── Toggle (shared) ────────────────────────────────────────── */
 .toggle {

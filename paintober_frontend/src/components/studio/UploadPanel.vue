@@ -1,17 +1,24 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import FileDropzone from './FileDropzone.vue'
 import ParametersPanel from './ParametersPanel.vue'
+import PaletteSelector from './PaletteSelector.vue'
 import ErrorBanner from '../shared/ErrorBanner.vue'
 import { createJob } from '../../api/jobs.js'
 import { useJobStore } from '../../stores/jobStore.js'
 import { parseApiError } from '../../utils/parseApiError.js'
+import { usePalettes } from '../../composables/usePalettes.js'
 
 const jobStore = useJobStore()
+const { palettes, loading: palettesLoading, fetchPalettes } = usePalettes()
 
 const selectedFile = ref(null)
 const submitting = ref(false)
 const submitError = ref(null)
+
+// 'auto' | 'preset' | 'byop'
+const paletteMode = ref('auto')
+const selectedPresetId = ref(null)
 
 // Default parameter values
 const params = ref({
@@ -24,6 +31,44 @@ const params = ref({
   allow_color_reuse: false,
   user_palette_hex: [],
 })
+
+// React to palette mode changes
+watch(paletteMode, (mode) => {
+  if (mode === 'auto') {
+    selectedPresetId.value = null
+    params.value = {
+      ...params.value,
+      use_user_palette: false,
+      user_palette_hex: [],
+    }
+  } else if (mode === 'byop') {
+    selectedPresetId.value = null
+    params.value = {
+      ...params.value,
+      use_user_palette: true,
+      user_palette_hex: [],
+    }
+  } else if (mode === 'preset') {
+    fetchPalettes()
+    // Clear any BYOP hex; a preset must be explicitly chosen
+    params.value = {
+      ...params.value,
+      use_user_palette: false,
+      user_palette_hex: [],
+    }
+  }
+})
+
+function onPresetSelected(presetId) {
+  selectedPresetId.value = presetId
+  const set = palettes.value?.find((p) => p.id === presetId)
+  if (!set) return
+  params.value = {
+    ...params.value,
+    use_user_palette: true,
+    user_palette_hex: set.colors.map((c) => c.hex),
+  }
+}
 
 function onFileSelected(file) {
   selectedFile.value = file
@@ -71,7 +116,18 @@ async function submit() {
 
     <FileDropzone @file-selected="onFileSelected" />
 
-    <ParametersPanel v-model:params="params" />
+    <PaletteSelector
+      :params="params"
+      :paletteMode="paletteMode"
+      :palettes="palettes"
+      :palettesLoading="palettesLoading"
+      :selectedPresetId="selectedPresetId"
+      @update:paletteMode="paletteMode = $event"
+      @update:params="params = $event"
+      @select-preset="onPresetSelected"
+    />
+
+    <ParametersPanel v-model:params="params" :paletteMode="paletteMode" />
 
     <ErrorBanner v-if="submitError" :message="submitError" @dismiss="submitError = null" />
 
@@ -88,7 +144,7 @@ async function submit() {
 
 <style scoped>
 .upload-panel {
-  max-width: 680px;
+  max-width: 80vw;
   margin: 0 auto;
   padding: var(--space-2xl) var(--space-xl);
   display: flex;
@@ -102,6 +158,7 @@ async function submit() {
   font-weight: var(--weight-black);
   color: var(--color-snow);
   text-shadow: 3px 3px 0 var(--color-midnight);
+  align-self: center;
 }
 
 .upload-panel__sub {
@@ -109,6 +166,7 @@ async function submit() {
   font-size: var(--text-body);
   color: var(--color-lavender);
   margin-top: calc(-1 * var(--space-md));
+  align-self: center;
 }
 
 

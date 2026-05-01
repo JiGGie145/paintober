@@ -4,6 +4,10 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  paletteMode: {
+    type: String,
+    default: 'auto',
+  },
 })
 
 const emit = defineEmits(['update:params'])
@@ -16,8 +20,8 @@ function update(key, value) {
 <template>
   <div class="basic-params">
 
-    <!-- k_colors -->
-    <div class="param-row">
+    <!-- k_colors — hidden when a preset is active (color count is fixed) -->
+    <div v-if="paletteMode !== 'preset'" class="param-row">
       <label class="param-label" :for="'k_colors'">
         Colours
         <span class="param-value">{{ params.k_colors }}</span>

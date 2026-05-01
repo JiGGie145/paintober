@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://66-228-41-226.ip.linodeusercontent.com',
+        target: 'http://localhost:8000',
         changeOrigin: true,
       },
     },
