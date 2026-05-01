@@ -63,7 +63,8 @@ const emit = defineEmits(['select'])
 
 .preset-card:hover {
   border-color: #bbb;
-  background-color: #fafafa;
+  transform: translateY(-2px);
+  box-shadow: 4px 4px 0 #bbb;
 }
 
 .preset-card--selected {

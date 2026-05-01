@@ -189,7 +189,8 @@ function selectTile(id) {
 
 .palette-tile:hover {
   border-color: #bbb;
-  background-color: color-mix(in srgb, var(--color-snow) 9%, transparent);
+  transform: translateY(-2px);
+  box-shadow: 4px 4px 0 #bbb;
 }
 
 .palette-tile--active {
