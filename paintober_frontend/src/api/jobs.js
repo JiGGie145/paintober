@@ -8,6 +8,13 @@
 const BASE = (import.meta.env.VITE_API_BASE ?? '') + '/api'
 
 // ----------------------------------------------------------------
+// CSRF bootstrap — call once on app init to get the csrftoken cookie
+// ----------------------------------------------------------------
+export function initCsrf() {
+  return fetch(`${BASE}/csrf/`, { credentials: 'include' })
+}
+
+// ----------------------------------------------------------------
 // CSRF helper — reads csrftoken cookie set by Django
 // ----------------------------------------------------------------
 function getCsrfToken() {

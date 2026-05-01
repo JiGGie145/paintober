@@ -17,10 +17,20 @@ Including another URLconf
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import include, path
+from django.views.decorators.csrf import ensure_csrf_cookie
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
+
+@ensure_csrf_cookie
+def csrf_view(request):
+    """GET /api/csrf/ — forces Django to set the csrftoken cookie for SPA clients."""
+    return JsonResponse({'detail': 'ok'})
+
+
 urlpatterns = [
+    path('api/csrf/', csrf_view, name='csrf'),
     path('admin/', admin.site.urls),
     path('api/jobs/', include('jobs.urls')),
     path('api/palettes/', include('palettes.urls')),
