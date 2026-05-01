@@ -14,4 +14,4 @@ class PaintSetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PaintSet
-        fields = ["id", "name", "description", "paint_type", "tube_count", "colors"]
+        fields = ["id", "name", "description", "paint_type", "tube_count", "tag", "colors"]

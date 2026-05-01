@@ -7,6 +7,7 @@ class PaintSet(models.Model):
     description = models.TextField()
     paint_type = models.CharField(max_length=50)
     tube_count = models.IntegerField()
+    tag = models.CharField(max_length=80, blank=True, default="")
 
     class Meta:
         ordering = ["paint_type", "tube_count", "id"]
