@@ -47,7 +47,7 @@ const emit = defineEmits(['select'])
   background-color: #f8f8f8;
   border: 2px solid #ddd;
   border-radius: var(--radius-md);
-  padding: var(--space-lg);
+  padding: var(--space-xs);
   max-height: 24rem;
   overflow-y: auto;
 }
@@ -67,8 +67,8 @@ const emit = defineEmits(['select'])
 
   .preset-grid {
     display: flex;
-    flex-direction: row;
-    overflow-x: auto;
+    flex-direction: column;
+    overflow-y: auto;
     gap: var(--space-md);
     padding-bottom: var(--space-sm);
     scroll-snap-type: x mandatory;

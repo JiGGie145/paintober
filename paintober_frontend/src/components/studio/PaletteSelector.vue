@@ -126,6 +126,7 @@ function selectTile(id) {
   color: var(--color-snow);
   text-align: center;
   margin: 0;
+  padding: 0;
   line-height: var(--leading-normal);
 }
 
@@ -135,7 +136,7 @@ function selectTile(id) {
   border: 3px solid var(--color-lime);
   box-shadow: 5px 5px 0 var(--color-midnight);
   border-radius: 24px;
-  padding: var(--space-xl);
+  padding: var(--space-md);
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);

@@ -152,6 +152,13 @@ async function submit() {
   gap: var(--space-xl);
 }
 
+@media (max-width: 600px) {
+  .upload-panel {
+    padding: 0 0;
+    max-width: 90vw;
+  }
+}
+
 .upload-panel__heading {
   font-family: var(--font-display);
   font-size: var(--text-heading);
