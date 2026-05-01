@@ -18,6 +18,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import JsonResponse
+from django.middleware.csrf import get_token
 from django.urls import include, path
 from django.views.decorators.csrf import ensure_csrf_cookie
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
@@ -25,8 +26,10 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 
 @ensure_csrf_cookie
 def csrf_view(request):
-    """GET /api/csrf/ — forces Django to set the csrftoken cookie for SPA clients."""
-    return JsonResponse({'detail': 'ok'})
+    """GET /api/csrf/ — sets the csrftoken cookie and returns the token in the
+    response body so cross-origin SPA clients can read it without relying on
+    document.cookie (which is scoped to the backend domain, not the frontend)."""
+    return JsonResponse({'csrfToken': get_token(request)})
 
 
 urlpatterns = [

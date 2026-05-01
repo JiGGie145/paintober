@@ -8,20 +8,29 @@
 const BASE = (import.meta.env.VITE_API_BASE ?? '') + '/api'
 
 // ----------------------------------------------------------------
-// CSRF bootstrap — call once on app init to get the csrftoken cookie
+// In-memory CSRF token — used in cross-origin (production) deployments
+// where document.cookie cannot read cookies set on the backend domain.
+// ----------------------------------------------------------------
+let _csrfToken = ''
+
+// ----------------------------------------------------------------
+// CSRF bootstrap — call once on app init before any POST
 // ----------------------------------------------------------------
 export function initCsrf() {
   return fetch(`${BASE}/csrf/`, { credentials: 'include' })
+    .then((r) => r.json())
+    .then((data) => { _csrfToken = data.csrfToken ?? '' })
 }
 
 // ----------------------------------------------------------------
-// CSRF helper — reads csrftoken cookie set by Django
+// CSRF helper — prefers cookie (same-origin dev), falls back to
+// the in-memory token returned by the bootstrap endpoint (prod).
 // ----------------------------------------------------------------
 function getCsrfToken() {
   const match = document.cookie
     .split('; ')
     .find((row) => row.startsWith('csrftoken='))
-  return match ? match.split('=')[1] : ''
+  return match ? match.split('=')[1] : _csrfToken
 }
 
 // ----------------------------------------------------------------
