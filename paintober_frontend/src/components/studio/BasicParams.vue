@@ -62,57 +62,68 @@ function update(key, value) {
       </div>
     </div>
 
-    <!-- min_region_area -->
+    <!-- smooth_method -->
     <div class="param-row">
-      <label class="param-label" :for="'min_region_area'">
-        Min Region Area
-        <span class="param-value">{{ params.min_region_area }} px²</span>
-      </label>
-      <input
-        id="min_region_area"
-        type="range"
-        :value="params.min_region_area"
-        min="0"
-        max="1000"
-        step="10"
-        class="param-range"
-        @input="update('min_region_area', Number($event.target.value))"
-      />
-      <div class="param-range-labels">
-        <span>0</span><span>1000</span>
-      </div>
-    </div>
-
-    <!-- contour_epsilon -->
-    <div class="param-row">
-      <label class="param-label" :for="'contour_epsilon'">
-        Contour Smoothing
-        <span class="param-value">{{ params.contour_epsilon }}</span>
-      </label>
-      <input
-        id="contour_epsilon"
-        type="number"
-        :value="params.contour_epsilon"
-        min="0.0"
-        max="0.02"
-        step="0.001"
+      <label class="param-label" for="smooth_method">Smoothing Method</label>
+      <select
+        id="smooth_method"
         class="param-number"
-        @input="update('contour_epsilon', Number($event.target.value))"
+        :value="params.smooth_method"
+        @change="update('smooth_method', $event.target.value)"
+      >
+        <option value="meanshift">Meanshift</option>
+        <option value="bilateral">Bilateral</option>
+        <option value="gaussian">Gaussian</option>
+        <option value="none">None</option>
+      </select>
+    </div>
+
+    <!-- blur_sigma -->
+    <div class="param-row">
+      <label class="param-label" for="blur_sigma">
+        Smoothing Strength
+        <span class="param-value">{{ params.blur_sigma }}</span>
+      </label>
+      <input
+        id="blur_sigma"
+        type="number"
+        :value="params.blur_sigma"
+        min="0"
+        max="10"
+        step="0.1"
+        class="param-number"
+        @input="update('blur_sigma', Number($event.target.value))"
       />
     </div>
 
-    <!-- apply_gaussian -->
-    <div class="param-row param-row--toggle">
-      <label class="param-label param-label--toggle" :for="'apply_gaussian'">
-        Smooth edges (Gaussian blur)
+    <!-- min_region_pct -->
+    <div class="param-row">
+      <label class="param-label" for="min_region_pct">
+        Small Region Threshold
+        <span class="param-value">{{ params.min_region_pct }}%</span>
       </label>
+      <input
+        id="min_region_pct"
+        type="number"
+        :value="params.min_region_pct"
+        min="0"
+        max="1"
+        step="0.01"
+        class="param-number"
+        @input="update('min_region_pct', Number($event.target.value))"
+      />
+    </div>
+
+    <!-- no_merge -->
+    <div class="param-row param-row--toggle">
+      <label class="param-label param-label--toggle" for="no_merge">Merge small regions</label>
       <button
-        id="apply_gaussian"
+        id="no_merge"
         class="toggle"
-        :class="{ 'toggle--on': params.apply_gaussian }"
+        :class="{ 'toggle--on': !params.no_merge }"
         role="switch"
-        :aria-checked="params.apply_gaussian"
-        @click="update('apply_gaussian', !params.apply_gaussian)"
+        :aria-checked="!params.no_merge"
+        @click="update('no_merge', !params.no_merge)"
       >
         <span class="toggle__thumb" />
       </button>

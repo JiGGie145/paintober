@@ -24,11 +24,12 @@ const selectedPresetId = ref(null)
 const params = ref({
   k_colors: 12,
   line_thickness: 1,
-  min_region_area: 200,
-  apply_gaussian: true,
-  contour_epsilon: 0.0,
+  smooth_method: 'meanshift',
+  blur_sigma: 1.5,
+  min_region_pct: 0.03,
+  no_merge: false,
   use_user_palette: false,
-  allow_color_reuse: false,
+  allow_color_reuse: true,
   user_palette_hex: [],
 })
 
@@ -87,9 +88,10 @@ async function submit() {
     // Append each param
     formData.append('k_colors', params.value.k_colors)
     formData.append('line_thickness', params.value.line_thickness)
-    formData.append('min_region_area', params.value.min_region_area)
-    formData.append('apply_gaussian', params.value.apply_gaussian)
-    formData.append('contour_epsilon', params.value.contour_epsilon)
+    formData.append('smooth_method', params.value.smooth_method)
+    formData.append('blur_sigma', params.value.blur_sigma)
+    formData.append('min_region_pct', params.value.min_region_pct)
+    formData.append('no_merge', params.value.no_merge)
 
     if (params.value.use_user_palette) {
       formData.append('use_user_palette', true)

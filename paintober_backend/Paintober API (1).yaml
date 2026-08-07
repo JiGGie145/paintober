@@ -1,0 +1,303 @@
+openapi: 3.0.3
+info:
+  title: Paintober API
+  version: 0.1.0
+  description: REST API for the Paintober image-processing pipeline.
+paths:
+  /api/jobs/:
+    get:
+      operationId: job_list
+      tags:
+      - jobs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobList'
+          description: ''
+  /api/jobs/{job_id}/:
+    get:
+      operationId: job_retrieve
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - jobs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+          description: ''
+  /api/jobs/{job_id}/download/{file_key}/:
+    get:
+      operationId: jobs_download_retrieve
+      parameters:
+      - in: path
+        name: file_key
+        schema:
+          type: string
+          enum:
+          - color
+          - outline
+          - palette
+          - zip
+        description: Output file to download.
+        required: true
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: token
+        schema:
+          type: string
+        description: Signed download token from the job detail response. Expires after
+          1 hour.
+        required: true
+      tags:
+      - jobs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: PNG image or ZIP archive.
+        '403':
+          description: Token expired or invalid.
+        '404':
+          description: Job not done or file not found.
+  /api/jobs/create/:
+    post:
+      operationId: jobs_create_create
+      tags:
+      - jobs
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/JobCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/JobCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCreateResponse'
+          description: ''
+components:
+  schemas:
+    DownloadUrls:
+      type: object
+      properties:
+        outline:
+          type: string
+          format: uri
+        color:
+          type: string
+          format: uri
+        palette:
+          type: string
+          format: uri
+        zip:
+          type: string
+          format: uri
+      required:
+      - color
+      - outline
+      - palette
+      - zip
+    JobCreate:
+      type: object
+      properties:
+        image:
+          type: string
+          format: uri
+          writeOnly: true
+        k_colors:
+          type: integer
+          maximum: 32
+          minimum: 2
+        line_thickness:
+          type: integer
+          maximum: 10
+          minimum: 1
+        smooth_method:
+          type: string
+          enum:
+          - meanshift
+          - bilateral
+          - gaussian
+          - none
+        blur_sigma:
+          type: number
+          format: double
+          maximum: 10.0
+          minimum: 0.0
+        min_region_pct:
+          type: number
+          format: double
+          maximum: 1.0
+          minimum: 0.0
+        no_merge:
+          type: boolean
+        use_user_palette:
+          type: boolean
+        user_palette_mode:
+          $ref: '#/components/schemas/UserPaletteModeEnum'
+        user_palette_rgb:
+          type: array
+          items:
+            type: array
+            items:
+              type: integer
+              maximum: 255
+              minimum: 0
+            maxItems: 3
+            minItems: 3
+        user_palette_hex:
+          type: array
+          items:
+            type: string
+            maxLength: 7
+        allow_color_reuse:
+          type: boolean
+      required:
+      - image
+    JobCreateResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+      required:
+      - job_id
+      - status
+    JobList:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          readOnly: true
+        retry_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - retry_count
+      - status
+      - updated_at
+    JobStatus:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          readOnly: true
+        retry_count:
+          type: integer
+          readOnly: true
+        error_message:
+          type: string
+          readOnly: true
+          nullable: true
+        parameters:
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        download_urls:
+          allOf:
+          - $ref: '#/components/schemas/DownloadUrls'
+          readOnly: true
+      required:
+      - created_at
+      - download_urls
+      - error_message
+      - id
+      - parameters
+      - retry_count
+      - status
+      - updated_at
+    StatusEnum:
+      enum:
+      - pending
+      - processing
+      - done
+      - failed
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `processing` - Processing
+        * `done` - Done
+        * `failed` - Failed
+    UserPaletteModeEnum:
+      enum:
+      - rgb
+      - hex
+      type: string
+      description: |-
+        * `rgb` - rgb
+        * `hex` - hex
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <style>
+    body { background: #0a0a0c; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    .container { position: relative; width: min(400px, 100vw); }
+    img { display: block; width: 100%; height: auto; opacity: 0.7; }
+    canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- <img id="srcImg" src="https://picsum.photos/400/400" crossorigin="anonymous" /> -->
+  <img id="srcImg" src="../sonnet5/input.jpeg" crossorigin="anonymous" />
+  <canvas id="trailCanvas"></canvas>
+</div>
+
+<script>
+const img = document.getElementById('srcImg');
+const canvas = document.getElementById('trailCanvas');
+const ctx = canvas.getContext('2d');
+const processingWidth = 512;
+const processingHeight = 512;
+
+img.onload = () => {
+  const width = processingWidth;
+  const height = processingHeight;
+  canvas.width = width;
+  canvas.height = height;
+
+  // 1. Compute Sobel Edge Map offscreen
+  const offCanvas = document.createElement('canvas');
+  offCanvas.width = width; offCanvas.height = height;
+  const offCtx = offCanvas.getContext('2d');
+  offCtx.drawImage(img, 0, 0, width, height);
+  const imgData = offCtx.getImageData(0, 0, width, height);
+  const data = imgData.data;
+
+  // Grayscale & Sobel magnitude array
+  const edges = new Float32Array(width * height);
+  const edgePixels = []; // Coordinates of strong edges for seeding
+
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      // 3x3 Sobel Kernel horizontal (gx) & vertical (gy)
+      const i = (y * width + x) * 4;
+      const gx = -data[i - 4 - width*4] + data[i + 4 - width*4]
+                 -2*data[i - 4]          + 2*data[i + 4]
+                 -data[i - 4 + width*4] + data[i + 4 + width*4];
+      const gy = -data[i - width*4 - 4] - 2*data[i - width*4] - data[i - width*4 + 4]
+                 +data[i + width*4 - 4] + 2*data[i + width*4] + data[i + width*4 + 4];
+      
+      const mag = Math.sqrt(gx * gx + gy * gy);
+      edges[y * width + x] = mag;
+
+      if (mag > 80) edgePixels.push({ x, y }); // Store valid seed locations
+    }
+  }
+
+  // 2. Walker Class Definition
+  class Walker {
+    constructor() { this.reset(); }
+    
+    reset() {
+      if (!edgePixels.length) return;
+      const seed = edgePixels[Math.floor(Math.random() * edgePixels.length)];
+      this.x = seed.x;
+      this.y = seed.y;
+      this.life = Math.floor(20 + Math.random() * 400); // 20-60 steps
+      this.visited = new Set();
+    }
+
+    step() {
+      if (this.life <= 0) { this.reset(); return; }
+
+      let bestMag = -1;
+      let nextX = this.x;
+      let nextY = this.y;
+
+      // Look at 8 neighboring pixels
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = this.x + dx;
+          const ny = this.y + dy;
+          const key = `${nx},${ny}`;
+
+          if (nx >= 0 && nx < width && ny >= 0 && ny < height && !this.visited.has(key)) {
+            const mag = edges[ny * width + nx];
+            if (mag > bestMag) {
+              bestMag = mag;
+              nextX = nx;
+              nextY = ny;
+            }
+          }
+        }
+      }
+
+      // If trapped or no edge found, reset walker
+      if (bestMag < 20 || (nextX === this.x && nextY === this.y)) {
+        this.reset();
+        return;
+      }
+
+      // Draw segment line
+      ctx.beginPath();
+      ctx.strokeStyle = '#00ffcc';
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = '#00ffcc';
+      ctx.shadowBlur = 6;
+      ctx.moveTo(this.x, this.y);
+      ctx.lineTo(nextX, nextY);
+      ctx.stroke();
+
+      this.visited.add(`${nextX},${nextY}`);
+      this.x = nextX;
+      this.y = nextY;
+      this.life--;
+    }
+  }
+
+  // Create 30 walkers
+  const walkers = Array.from({ length: 30 }, () => new Walker());
+
+  // 3. Animation Loop with trail fading
+  function animate() {
+    // Semi-transparent overlay creates a glowing trail fade effect
+    ctx.fillStyle = 'rgba(10, 10, 12, 0.0025)';
+    ctx.fillRect(0, 0, width, height);
+
+    walkers.forEach(w => w.step());
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+};
+</script>
+</body>
+</html>

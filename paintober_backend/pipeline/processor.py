@@ -7,7 +7,6 @@ Entry point: run_pipeline(image_path, output_dir, params) -> dict
 
 import io
 import logging
-import math
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -17,6 +16,8 @@ import matplotlib
 matplotlib.use("Agg")  # non-interactive backend — no display required
 import matplotlib.pyplot as plt
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
+from scipy import ndimage
 from sklearn.cluster import KMeans
 
 logger = logging.getLogger("pipeline")
@@ -24,11 +25,11 @@ logger = logging.getLogger("pipeline")
 # ── Defaults (mirror notebook cell 3) ─────────────────────────────────────
 DEFAULTS: Dict[str, Any] = {
     "k_colors": 12,
-    "min_region_area": 200,
-    "contour_epsilon": 0.002,
     "line_thickness": 1,
-    "apply_gaussian": True,
-    "min_label_spacing": 12,
+    "smooth_method": "meanshift",
+    "blur_sigma": 1.5,
+    "min_region_pct": 0.03,
+    "no_merge": False,
     # BYOP
     "use_user_palette": False,
     "user_palette_mode": "hex",       # "rgb" | "hex"
@@ -78,110 +79,182 @@ def load_image(path: str) -> np.ndarray:
     return rgb
 
 
-def preprocess_image(img: np.ndarray, apply_gaussian: bool = False) -> np.ndarray:
-    smoothed = cv2.bilateralFilter(img, d=9, sigmaColor=75, sigmaSpace=75)
-    if apply_gaussian:
-        smoothed = cv2.GaussianBlur(smoothed, (5, 5), 0)
+def preprocess_image(
+    img: np.ndarray,
+    smooth_method: str = "meanshift",
+    blur_sigma: float = 1.5,
+) -> np.ndarray:
+    if smooth_method not in {"meanshift", "bilateral", "gaussian", "none"}:
+        raise ValueError(
+            f"Unsupported smooth_method: {smooth_method!r}. "
+            "Use 'meanshift', 'bilateral', 'gaussian', or 'none'."
+        )
+    if blur_sigma < 0:
+        raise ValueError("blur_sigma must be non-negative")
+    if smooth_method == "none" or blur_sigma == 0:
+        return img
+    if smooth_method == "gaussian":
+        return cv2.GaussianBlur(img, (0, 0), sigmaX=blur_sigma)
+    if smooth_method == "meanshift":
+        sp = max(2, int(blur_sigma * 7))
+        sr = max(20, int(blur_sigma * 40))
+        return cv2.pyrMeanShiftFiltering(img, sp=sp, sr=sr)
+
+    sigma = max(10, blur_sigma * 40)
+    smoothed = img.copy()
+    for _ in range(3):
+        smoothed = cv2.bilateralFilter(smoothed, d=9, sigmaColor=sigma, sigmaSpace=sigma)
     return smoothed
 
 
-def quantize_colors(img: np.ndarray, k: int = 12) -> Tuple[np.ndarray, np.ndarray]:
+def quantize_colors(
+    img: np.ndarray,
+    k: int = 12,
+    blur_sigma: float = 1.5,
+    smooth_method: str = "meanshift",
+) -> Tuple[np.ndarray, np.ndarray]:
     h, w = img.shape[:2]
-    pixels = img.reshape(-1, 3).astype(np.float32)
-    kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
-    kmeans.fit(pixels)
-    palette = kmeans.cluster_centers_.astype(np.uint8)
-    quantized_img = palette[kmeans.labels_].reshape(h, w, 3)
-    return quantized_img, palette
+    smoothed = preprocess_image(img, smooth_method, blur_sigma)
+    pixels = smoothed.reshape(-1, 3).astype(np.float32)
+    # Don't ask KMeans for more clusters than unique colors that exist.
+    n_unique = len(np.unique(pixels.astype(np.uint8), axis=0))
+    k_colours = max(1, min(k, n_unique))
+    kmeans = KMeans(n_clusters=k_colours, random_state=42, n_init=4)
+    label_map = kmeans.fit_predict(pixels).reshape(h, w)
+    palette = np.clip(kmeans.cluster_centers_, 0, 255).astype(np.uint8)
+    return label_map, palette
 
 
-def create_color_masks(
-    quantized_img: np.ndarray, palette: np.ndarray
-) -> List[np.ndarray]:
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    masks: List[np.ndarray] = []
-    for color in palette:
-        mask = np.all(quantized_img == color, axis=2).astype(np.uint8) * 255
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        masks.append(mask)
-    return masks
-
-
-def extract_contours(
-    masks: List[np.ndarray], min_area: int = 200
-) -> List[List[np.ndarray]]:
-    contours_by_color: List[List[np.ndarray]] = []
-    for mask in masks:
-        cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        filtered = [c for c in cnts if cv2.contourArea(c) >= min_area]
-        contours_by_color.append(filtered)
-    return contours_by_color
-
-
-def simplify_contours(
-    contours_by_color: List[List[np.ndarray]],
-    epsilon_ratio: float = 0.002,
-) -> List[List[np.ndarray]]:
-    simplified: List[List[np.ndarray]] = []
-    for contours in contours_by_color:
-        simp_group: List[np.ndarray] = []
-        for c in contours:
-            eps = epsilon_ratio * cv2.arcLength(c, True)
-            approx = cv2.approxPolyDP(c, eps, True)
-            simp_group.append(approx)
-        simplified.append(simp_group)
-    return simplified
-
-
-def _find_label_point(
-    contour: np.ndarray, image_shape: Tuple[int, int]
-) -> Tuple[int, int]:
-    h, w = image_shape
-    mask = np.zeros((h, w), dtype=np.uint8)
-    cv2.drawContours(mask, [contour], -1, 255, cv2.FILLED)
-    dist = cv2.distanceTransform(mask, cv2.DIST_L2, 5)
-    _, _, _, max_loc = cv2.minMaxLoc(dist)
-    return max_loc  # (x, y)
-
-
-def draw_outline(
-    contours_by_color: List[List[np.ndarray]],
-    image_shape: Tuple[int, int],
-    thickness: int = 2,
-    min_label_area: int = 200,
-    min_label_spacing: int = 12,
+def merge_small_regions(
+    label_map: np.ndarray,
+    min_region_pixels: int,
 ) -> np.ndarray:
-    h, w = image_shape
-    canvas = np.ones((h, w, 3), dtype=np.uint8) * 255
+    """Merge small connected components into their strongest neighbours."""
+    label_map = label_map.copy()
+    structure = np.ones((3, 3), dtype=int)
 
-    for contours in contours_by_color:
-        cv2.drawContours(canvas, contours, -1, (0, 0, 0), thickness)
+    for _ in range(6):
+        changed = False
+        component_map = np.zeros_like(label_map, dtype=np.int64)
+        component_sizes: Dict[int, int] = {}
+        component_labels: Dict[int, int] = {}
+        next_id = 1
 
-    placed: List[Tuple[int, int]] = []
+        for label in np.unique(label_map):
+            components, count = ndimage.label(label_map == label, structure=structure)
+            label_mask = label_map == label
+            component_map[label_mask] = (components + next_id - 1)[label_mask]
+            for component_id in range(1, count + 1):
+                global_id = component_id + next_id - 1
+                component_sizes[global_id] = int(np.sum(components == component_id))
+                component_labels[global_id] = int(label)
+            next_id += count
 
-    for color_idx, contours in enumerate(contours_by_color):
-        label = str(color_idx + 1)
-        for c in contours:
-            area = cv2.contourArea(c)
-            if area < min_label_area:
+        small_ids = sorted(
+            (component_id for component_id, size in component_sizes.items()
+             if size < min_region_pixels),
+            key=component_sizes.get,
+        )
+        if not small_ids:
+            break
+
+        for component_id in small_ids:
+            mask = component_map == component_id
+            if not mask.any():
                 continue
-            lx, ly = _find_label_point(c, (h, w))
-            too_close = any(
-                math.hypot(lx - px, ly - py) < min_label_spacing
-                for px, py in placed
-            )
-            if too_close:
+            border = ndimage.binary_dilation(mask, structure=structure) & ~mask
+            neighbours = component_map[border]
+            neighbours = neighbours[neighbours != component_id]
+            if neighbours.size == 0:
                 continue
-            font_scale = max(0.25, min(0.55, math.sqrt(area) / 200))
-            cv2.putText(
-                canvas, label, (lx, ly),
-                cv2.FONT_HERSHEY_SIMPLEX, font_scale,
-                (60, 60, 60), 1, cv2.LINE_AA,
-            )
-            placed.append((lx, ly))
+            values, counts = np.unique(neighbours, return_counts=True)
+            winner = int(values[np.argmax(counts)])
+            label_map[mask] = component_labels[winner]
+            changed = True
 
-    return canvas
+        if not changed:
+            break
+
+    return label_map
+
+
+def relabel_contiguous(
+    label_map: np.ndarray,
+    palette: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    used = np.unique(label_map)
+    used_palette = palette[used]
+    luminance = (
+        0.299 * used_palette[:, 0]
+        + 0.587 * used_palette[:, 1]
+        + 0.114 * used_palette[:, 2]
+    )
+    order = np.argsort(luminance)[::-1]
+    old_labels = used[order]
+    sorted_palette = used_palette[order]
+    remap = {int(old): new for new, old in enumerate(old_labels)}
+    relabeled = np.vectorize(remap.__getitem__)(label_map).astype(np.int32)
+    return relabeled, sorted_palette
+
+
+def _find_font_path() -> Optional[str]:
+    candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+    ]
+    return next((path for path in candidates if Path(path).exists()), None)
+
+
+def build_outline_image(
+    label_map: np.ndarray,
+    min_region_for_number: int,
+    line_thickness: int = 1,
+) -> np.ndarray:
+    h, w = label_map.shape
+    border = np.zeros((h, w), dtype=bool)
+    border[:, :-1] |= label_map[:, :-1] != label_map[:, 1:]
+    border[:-1, :] |= label_map[:-1, :] != label_map[1:, :]
+    if line_thickness > 1:
+        border = cv2.dilate(border.astype(np.uint8), np.ones((line_thickness, line_thickness), np.uint8)) > 0
+
+    canvas = np.full((h, w, 3), 255, dtype=np.uint8)
+    canvas[border] = (0, 0, 0)
+    image = Image.fromarray(canvas)
+    draw = ImageDraw.Draw(image)
+    font_path = _find_font_path()
+    structure = np.ones((3, 3), dtype=int)
+
+    for label in np.unique(label_map):
+        components, count = ndimage.label(label_map == label, structure=structure)
+        for component_id in range(1, count + 1):
+            component_mask = components == component_id
+            area = int(np.sum(component_mask))
+            if area < min_region_for_number:
+                continue
+            distance = ndimage.distance_transform_edt(component_mask)
+            cy, cx = np.unravel_index(np.argmax(distance), distance.shape)
+            max_distance = distance[cy, cx]
+            font_size = int(np.clip(max_distance * 1.1, 8, 28))
+            font = ImageFont.truetype(font_path, font_size) if font_path else ImageFont.load_default()
+            text = str(int(label) + 1)
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            if text_width > max_distance * 2.2 or text_height > max_distance * 2.2:
+                continue
+            draw.text(
+                (cx - text_width / 2 - bbox[0], cy - text_height / 2 - bbox[1]),
+                text,
+                fill=(0, 0, 0),
+                font=font,
+            )
+
+    return np.asarray(image)
+
+
+def build_colored_image(label_map: np.ndarray, palette: np.ndarray) -> np.ndarray:
+    return palette[label_map]
 
 
 def create_palette_image(palette: np.ndarray) -> np.ndarray:
@@ -269,29 +342,75 @@ def rgb_to_lab(color_rgb: Tuple[int, int, int]) -> np.ndarray:
     return lab[0, 0].astype(np.float32)
 
 
+def rgb_to_lch(color_rgb: Tuple[int, int, int]) -> Tuple[float, float, float]:
+    lab = rgb_to_lab(color_rgb)
+    a_channel = float(lab[1] - 128.0)
+    b_channel = float(lab[2] - 128.0)
+    chroma = float(np.hypot(a_channel, b_channel))
+    hue = float(np.degrees(np.arctan2(b_channel, a_channel)) % 360.0)
+    return (float(lab[0]), chroma, hue)
+
+
 def delta_e(c1_lab: np.ndarray, c2_lab: np.ndarray) -> float:
     return float(np.linalg.norm(c1_lab.astype(float) - c2_lab.astype(float)))
+
+
+def circular_hue_distance(hue_1: float, hue_2: float) -> float:
+    difference = abs(float(hue_1) - float(hue_2)) % 360.0
+    return min(difference, 360.0 - difference)
+
+
+def _palette_match_cost(
+    generated_lab: np.ndarray,
+    generated_lch: Tuple[float, float, float],
+    user_lab: np.ndarray,
+    user_lch: Tuple[float, float, float],
+    hue_weight: float,
+) -> float:
+    hue_penalty = 0.0
+    if generated_lch[1] >= 10.0 and user_lch[1] >= 10.0:
+        hue_penalty = hue_weight * circular_hue_distance(
+            generated_lch[2], user_lch[2]
+        )
+    return delta_e(generated_lab, user_lab) + hue_penalty
 
 
 def map_palette_to_user_palette(
     generated_palette: np.ndarray,
     user_palette: List[Tuple[int, int, int]],
     allow_reuse: bool = True,
+    hue_weight: float = 2.0,
 ) -> dict:
+    if hue_weight < 0:
+        raise ValueError("hue_weight must be non-negative")
+
     gen_labs = [rgb_to_lab(tuple(int(v) for v in c)) for c in generated_palette]
     user_labs = [rgb_to_lab(c) for c in user_palette]
+    gen_lchs = [rgb_to_lch(tuple(int(v) for v in c)) for c in generated_palette]
+    user_lchs = [rgb_to_lch(c) for c in user_palette]
 
     if allow_reuse:
         mapping: dict = {}
         for i, g_lab in enumerate(gen_labs):
-            dists = [delta_e(g_lab, u_lab) for u_lab in user_labs]
-            best = int(np.argmin(dists))
+            costs = [
+                _palette_match_cost(
+                    g_lab, gen_lchs[i], user_lab, user_lchs[j], hue_weight
+                )
+                for j, user_lab in enumerate(user_labs)
+            ]
+            best = int(np.argmin(costs))
             mapping[i] = user_palette[best]
         return mapping
 
     all_pairs = sorted(
         [
-            (i, j, delta_e(gen_labs[i], user_labs[j]))
+            (
+                i,
+                j,
+                _palette_match_cost(
+                    gen_labs[i], gen_lchs[i], user_labs[j], user_lchs[j], hue_weight
+                ),
+            )
             for i in range(len(generated_palette))
             for j in range(len(user_palette))
         ],
@@ -307,8 +426,13 @@ def map_palette_to_user_palette(
             claimed_user.add(j)
     for i in range(len(generated_palette)):
         if i not in mapping:
-            dists = [delta_e(gen_labs[i], u_lab) for u_lab in user_labs]
-            mapping[i] = user_palette[int(np.argmin(dists))]
+            costs = [
+                _palette_match_cost(
+                    gen_labs[i], gen_lchs[i], user_lab, user_lchs[j], hue_weight
+                )
+                for j, user_lab in enumerate(user_labs)
+            ]
+            mapping[i] = user_palette[int(np.argmin(costs))]
     return mapping
 
 
@@ -365,11 +489,13 @@ def run_pipeline(image_path: str, output_dir: Path, params: Dict[str, Any]) -> D
     # Stage 1 — Load
     img = load_image(image_path)
 
-    # Stage 2 — Preprocess
-    preprocessed = preprocess_image(img, apply_gaussian=p["apply_gaussian"])
-
-    # Stage 3a — Quantize
-    quantized, palette = quantize_colors(preprocessed, k=p["k_colors"])
+    # Stage 2 — Quantize after pbn_v2-style smoothing
+    label_map, palette = quantize_colors(
+        img,
+        k=p["k_colors"],
+        blur_sigma=p["blur_sigma"],
+        smooth_method=p["smooth_method"],
+    )
 
     # Stage 3b — BYOP (optional)
     if p["use_user_palette"]:
@@ -378,28 +504,27 @@ def run_pipeline(image_path: str, output_dir: Path, params: Dict[str, Any]) -> D
             mapping = map_palette_to_user_palette(
                 palette, user_palette_rgb, allow_reuse=p["allow_color_reuse"]
             )
-            quantized = remap_image_to_user_palette(quantized, palette, mapping)
-            palette = np.unique(quantized.reshape(-1, 3), axis=0).astype(np.uint8)
-            logger.debug("BYOP remapping done, unique colours: %d", len(palette))
+            palette = np.asarray(
+                [mapping[index] for index in range(len(palette))],
+                dtype=np.uint8,
+            )
+            logger.debug("BYOP remapping done, palette colours: %d", len(palette))
 
-    # Stage 4 — Masks
-    masks = create_color_masks(quantized, palette)
+    # Stage 4 — Merge small connected regions
+    total_pixels = label_map.shape[0] * label_map.shape[1]
+    min_region_pixels = max(20, int(total_pixels * (p["min_region_pct"] / 100.0)))
+    if not p["no_merge"]:
+        label_map = merge_small_regions(label_map, min_region_pixels)
 
-    # Stage 5 — Contours
-    contours_by_color = extract_contours(masks, min_area=p["min_region_area"])
-
-    # Stage 6 — Simplify
-    simplified = simplify_contours(contours_by_color, epsilon_ratio=p["contour_epsilon"])
-
-    # Stage 7 — Outline
-    h_img, w_img = quantized.shape[:2]
-    outline = draw_outline(
-        simplified,
-        (h_img, w_img),
-        thickness=p["line_thickness"],
-        min_label_area=p["min_region_area"],
-        min_label_spacing=p["min_label_spacing"],
+    # Stage 5 — Relabel and render
+    label_map, palette = relabel_contiguous(label_map, palette)
+    min_region_for_number = max(40, int(total_pixels * 0.0008))
+    outline = build_outline_image(
+        label_map,
+        min_region_for_number=min_region_for_number,
+        line_thickness=p["line_thickness"],
     )
+    quantized = build_colored_image(label_map, palette)
 
     # Stage 8 — Palette image
     palette_img = create_palette_image(palette)

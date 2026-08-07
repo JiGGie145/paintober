@@ -1,1 +1,86 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?><!-- Generator: Gravitdesign.com --><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="isolation:isolate" viewBox="42 321 26 26" width="26pt" height="26pt"><g><circle vector-effect="non-scaling-stroke" cx="54.99999999999994" cy="333.99999999999994" r="12.999999999999986" fill="rgb(255,255,255)"/><circle vector-effect="non-scaling-stroke" cx="54.999999999999915" cy="334.0000000000001" r="11.999999999999972" fill="rgb(207,255,4)"/><circle vector-effect="non-scaling-stroke" cx="56.499999999999886" cy="328.50000000000006" r="0.5" fill="rgb(0,0,0)" stroke-width="2" stroke="rgb(11,69,80)" stroke-linejoin="round" stroke-linecap="round" stroke-miterlimit="4"/><circle vector-effect="non-scaling-stroke" cx="60.499999999999886" cy="332.50000000000006" r="0.5" fill="rgb(0,0,0)" stroke-width="2" stroke="rgb(11,69,80)" stroke-linejoin="round" stroke-linecap="round" stroke-miterlimit="4"/><circle vector-effect="non-scaling-stroke" cx="51.499999999999886" cy="329.50000000000006" r="0.5" fill="rgb(0,0,0)" stroke-width="2" stroke="rgb(11,69,80)" stroke-linejoin="round" stroke-linecap="round" stroke-miterlimit="4"/><circle vector-effect="non-scaling-stroke" cx="49.499999999999886" cy="334.50000000000006" r="0.5" fill="rgb(0,0,0)" stroke-width="2" stroke="rgb(11,69,80)" stroke-linejoin="round" stroke-linecap="round" stroke-miterlimit="4"/><path d=" M 55 324 C 49.5 324 45 328.5 45 334 C 45 339.5 49.5 344 55 344 C 55.926 344 56.648 343.254 56.648 342.312 C 56.648 341.875 56.468 341.477 56.211 341.187 C 55.921 340.898 55.773 340.535 55.773 340.062 C 55.765 339.617 55.939 339.189 56.253 338.874 C 56.568 338.56 56.996 338.386 57.441 338.394 L 59.437 338.394 C 62.488 338.394 64.992 335.891 64.992 332.84 C 64.965 328.012 60.461 324 55 324 Z " fill="none" vector-effect="non-scaling-stroke" stroke-width="2" stroke="rgb(11,69,80)" stroke-linejoin="round" stroke-linecap="round" stroke-miterlimit="4"/></g></svg>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Generator: Gravitdesign.com -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="isolation:isolate" viewBox="42 321 26 26" width="26pt" height="26pt">
+<g>
+  <circle vector-effect="non-scaling-stroke" cx="54.99999999999994" cy="333.99999999999994" r="12.999999999999986" fill="rgb(255,255,255)"/>
+  <circle vector-effect="non-scaling-stroke" cx="54.999999999999915" cy="334.0000000000001" r="11.999999999999972" fill="rgb(207,255,4)"/>
+
+  <!-- dot 1 – counterclockwise: rest → apex → top → left → bottom → notch-end → right → top → apex → rest → bounce -->
+  <circle vector-effect="non-scaling-stroke" cx="56.499999999999886" cy="328.50000000000006" r="0.5" fill="rgb(0,0,0)" stroke-width="2" stroke="rgb(11,69,80)" stroke-linejoin="round" stroke-linecap="round" stroke-miterlimit="4">
+    <animate attributeName="cx" calcMode="spline"
+      keyTimes="0;0.07;0.11;0.15;0.28;0.41;0.57;0.68;0.80;0.84;0.88;0.92;1"
+      values="56.5;56.5;55.75;55;45;55;59.44;64.99;55;55.75;56.5;56.5;56.5"
+      keySplines="0.5 0 0.5 1;0 0 0.3 1;0.7 0 1 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0 0 0.3 1;0.7 0 1 1;0 0 0.5 0;0.5 0.5 1 1"
+      dur="4s" begin="0s" repeatCount="indefinite"/>
+    <animate attributeName="cy" calcMode="spline"
+      keyTimes="0;0.07;0.11;0.15;0.28;0.41;0.57;0.68;0.80;0.84;0.88;0.92;1"
+      values="328.5;328.5;322;324;334;344;338.39;332.84;324;322;328.5;327;328.5"
+      keySplines="0.5 0 0.5 1;0 0 0.3 1;0.7 0 1 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0 0 0.3 1;0.7 0 1 1;0 0 0.5 0;0.5 0.5 1 1"
+      dur="4s" begin="0s" repeatCount="indefinite"/>
+    <animate attributeName="r" calcMode="spline"
+      keyTimes="0;0.07;0.11;0.80;0.88;1"
+      values="0.5;0.5;0.65;0.65;0.5;0.5"
+      keySplines="0.5 0 0.5 1;0.42 0 0.58 1;0.5 0 0.5 1;0.42 0 0.58 1;0.5 0 0.5 1"
+      dur="4s" begin="0s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- dot 2 – clockwise: rest → apex → top → right → notch-end → bottom → left → top → apex → rest → bounce -->
+  <circle vector-effect="non-scaling-stroke" cx="60.499999999999886" cy="332.50000000000006" r="0.5" fill="rgb(0,0,0)" stroke-width="2" stroke="rgb(11,69,80)" stroke-linejoin="round" stroke-linecap="round" stroke-miterlimit="4">
+    <animate attributeName="cx" calcMode="spline"
+      keyTimes="0;0.07;0.11;0.15;0.28;0.41;0.57;0.68;0.80;0.84;0.88;0.92;1"
+      values="60.5;60.5;57.75;55;64.99;59.44;55;45;55;57.75;60.5;60.5;60.5"
+      keySplines="0.5 0 0.5 1;0 0 0.3 1;0.7 0 1 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0 0 0.3 1;0.7 0 1 1;0 0 0.5 0;0.5 0.5 1 1"
+      dur="4s" begin="1s" repeatCount="indefinite"/>
+    <animate attributeName="cy" calcMode="spline"
+      keyTimes="0;0.07;0.11;0.15;0.28;0.41;0.57;0.68;0.80;0.84;0.88;0.92;1"
+      values="332.5;332.5;322;324;332.84;338.39;344;334;324;322;332.5;331;332.5"
+      keySplines="0.5 0 0.5 1;0 0 0.3 1;0.7 0 1 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0 0 0.3 1;0.7 0 1 1;0 0 0.5 0;0.5 0.5 1 1"
+      dur="4s" begin="1s" repeatCount="indefinite"/>
+    <animate attributeName="r" calcMode="spline"
+      keyTimes="0;0.07;0.11;0.80;0.88;1"
+      values="0.5;0.5;0.65;0.65;0.5;0.5"
+      keySplines="0.5 0 0.5 1;0.42 0 0.58 1;0.5 0 0.5 1;0.42 0 0.58 1;0.5 0 0.5 1"
+      dur="4s" begin="1s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- dot 3 – clockwise: rest → apex → top → right → notch-end → bottom → left → top → apex → rest → bounce -->
+  <circle vector-effect="non-scaling-stroke" cx="51.499999999999886" cy="329.50000000000006" r="0.5" fill="rgb(0,0,0)" stroke-width="2" stroke="rgb(11,69,80)" stroke-linejoin="round" stroke-linecap="round" stroke-miterlimit="4">
+    <animate attributeName="cx" calcMode="spline"
+      keyTimes="0;0.07;0.11;0.15;0.28;0.41;0.57;0.68;0.80;0.84;0.88;0.92;1"
+      values="51.5;51.5;53.25;55;64.99;59.44;55;45;55;53.25;51.5;51.5;51.5"
+      keySplines="0.5 0 0.5 1;0 0 0.3 1;0.7 0 1 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0 0 0.3 1;0.7 0 1 1;0 0 0.5 0;0.5 0.5 1 1"
+      dur="4s" begin="2s" repeatCount="indefinite"/>
+    <animate attributeName="cy" calcMode="spline"
+      keyTimes="0;0.07;0.11;0.15;0.28;0.41;0.57;0.68;0.80;0.84;0.88;0.92;1"
+      values="329.5;329.5;322;324;332.84;338.39;344;334;324;322;329.5;328;329.5"
+      keySplines="0.5 0 0.5 1;0 0 0.3 1;0.7 0 1 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0 0 0.3 1;0.7 0 1 1;0 0 0.5 0;0.5 0.5 1 1"
+      dur="4s" begin="2s" repeatCount="indefinite"/>
+    <animate attributeName="r" calcMode="spline"
+      keyTimes="0;0.07;0.11;0.80;0.88;1"
+      values="0.5;0.5;0.65;0.65;0.5;0.5"
+      keySplines="0.5 0 0.5 1;0.42 0 0.58 1;0.5 0 0.5 1;0.42 0 0.58 1;0.5 0 0.5 1"
+      dur="4s" begin="2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- dot 4 – counterclockwise: rest → apex → top → left → bottom → notch-end → right → top → apex → rest → bounce -->
+  <circle vector-effect="non-scaling-stroke" cx="49.499999999999886" cy="334.50000000000006" r="0.5" fill="rgb(0,0,0)" stroke-width="2" stroke="rgb(11,69,80)" stroke-linejoin="round" stroke-linecap="round" stroke-miterlimit="4">
+    <animate attributeName="cx" calcMode="spline"
+      keyTimes="0;0.07;0.11;0.15;0.28;0.41;0.57;0.68;0.80;0.84;0.88;0.92;1"
+      values="49.5;49.5;52.25;55;45;55;59.44;64.99;55;52.25;49.5;49.5;49.5"
+      keySplines="0.5 0 0.5 1;0 0 0.3 1;0.7 0 1 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0 0 0.3 1;0.7 0 1 1;0 0 0.5 0;0.5 0.5 1 1"
+      dur="4s" begin="3s" repeatCount="indefinite"/>
+    <animate attributeName="cy" calcMode="spline"
+      keyTimes="0;0.07;0.11;0.15;0.28;0.41;0.57;0.68;0.80;0.84;0.88;0.92;1"
+      values="334.5;334.5;322;324;334;344;338.39;332.84;324;322;334.5;333;334.5"
+      keySplines="0.5 0 0.5 1;0 0 0.3 1;0.7 0 1 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0 0 0.3 1;0.7 0 1 1;0 0 0.5 0;0.5 0.5 1 1"
+      dur="4s" begin="3s" repeatCount="indefinite"/>
+    <animate attributeName="r" calcMode="spline"
+      keyTimes="0;0.07;0.11;0.80;0.88;1"
+      values="0.5;0.5;0.65;0.65;0.5;0.5"
+      keySplines="0.5 0 0.5 1;0.42 0 0.58 1;0.5 0 0.5 1;0.42 0 0.58 1;0.5 0 0.5 1"
+      dur="4s" begin="3s" repeatCount="indefinite"/>
+  </circle>
+
+  <path d=" M 55 324 C 49.5 324 45 328.5 45 334 C 45 339.5 49.5 344 55 344 C 55.926 344 56.648 343.254 56.648 342.312 C 56.648 341.875 56.468 341.477 56.211 341.187 C 55.921 340.898 55.773 340.535 55.773 340.062 C 55.765 339.617 55.939 339.189 56.253 338.874 C 56.568 338.56 56.996 338.386 57.441 338.394 L 59.437 338.394 C 62.488 338.394 64.992 335.891 64.992 332.84 C 64.965 328.012 60.461 324 55 324 Z " fill="none" vector-effect="non-scaling-stroke" stroke-width="2" stroke="rgb(11,69,80)" stroke-linejoin="round" stroke-linecap="round" stroke-miterlimit="4"/>
+</g>
+</svg>

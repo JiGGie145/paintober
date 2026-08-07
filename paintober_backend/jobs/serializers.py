@@ -20,11 +20,14 @@ class JobCreateSerializer(serializers.Serializer):
     image = serializers.ImageField(write_only=True)
     # Pipeline parameters — all optional, pipeline defaults apply
     k_colors = serializers.IntegerField(min_value=2, max_value=32, required=False)
-    min_region_area = serializers.IntegerField(min_value=1, required=False)
-    contour_epsilon = serializers.FloatField(min_value=0.0, max_value=0.05, required=False)
     line_thickness = serializers.IntegerField(min_value=1, max_value=10, required=False)
-    apply_gaussian = serializers.BooleanField(required=False)
-    min_label_spacing = serializers.IntegerField(min_value=1, max_value=100, required=False)
+    smooth_method = serializers.ChoiceField(
+        choices=["meanshift", "bilateral", "gaussian", "none"],
+        required=False,
+    )
+    blur_sigma = serializers.FloatField(min_value=0.0, max_value=10.0, required=False)
+    min_region_pct = serializers.FloatField(min_value=0.0, max_value=1.0, required=False)
+    no_merge = serializers.BooleanField(required=False)
     # BYOP
     use_user_palette = serializers.BooleanField(required=False)
     user_palette_mode = serializers.ChoiceField(choices=["rgb", "hex"], required=False)
@@ -39,8 +42,8 @@ class JobCreateSerializer(serializers.Serializer):
     allow_color_reuse = serializers.BooleanField(required=False)
 
     PARAM_FIELDS = [
-        "k_colors", "min_region_area", "contour_epsilon", "line_thickness",
-        "apply_gaussian", "min_label_spacing", "use_user_palette",
+        "k_colors", "line_thickness", "smooth_method", "blur_sigma",
+        "min_region_pct", "no_merge", "use_user_palette",
         "user_palette_mode", "user_palette_rgb", "user_palette_hex",
         "allow_color_reuse",
     ]
