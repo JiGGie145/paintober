@@ -18,6 +18,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from scipy import ndimage
+from skimage.color import delta_e as skimage_delta_e
+from skimage.color import rgb2lab
 from sklearn.cluster import KMeans
 
 logger = logging.getLogger("pipeline")
@@ -337,22 +339,25 @@ def hex_to_rgb(hex_str: str) -> Tuple[int, int, int]:
 
 
 def rgb_to_lab(color_rgb: Tuple[int, int, int]) -> np.ndarray:
-    pixel = np.uint8([[[color_rgb[0], color_rgb[1], color_rgb[2]]]])
-    lab = cv2.cvtColor(pixel, cv2.COLOR_RGB2LAB)
-    return lab[0, 0].astype(np.float32)
+    pixel = np.asarray(color_rgb, dtype=np.float64).reshape(1, 1, 3) / 255.0
+    return rgb2lab(pixel)[0, 0].astype(np.float64)
 
 
 def rgb_to_lch(color_rgb: Tuple[int, int, int]) -> Tuple[float, float, float]:
     lab = rgb_to_lab(color_rgb)
-    a_channel = float(lab[1] - 128.0)
-    b_channel = float(lab[2] - 128.0)
+    a_channel = float(lab[1])
+    b_channel = float(lab[2])
     chroma = float(np.hypot(a_channel, b_channel))
     hue = float(np.degrees(np.arctan2(b_channel, a_channel)) % 360.0)
     return (float(lab[0]), chroma, hue)
 
 
 def delta_e(c1_lab: np.ndarray, c2_lab: np.ndarray) -> float:
-    return float(np.linalg.norm(c1_lab.astype(float) - c2_lab.astype(float)))
+    return float(
+        skimage_delta_e.deltaE_ciede2000(
+            c1_lab.astype(np.float64), c2_lab.astype(np.float64)
+        )
+    )
 
 
 def circular_hue_distance(hue_1: float, hue_2: float) -> float:
@@ -372,7 +377,7 @@ def _palette_match_cost(
         hue_penalty = hue_weight * circular_hue_distance(
             generated_lch[2], user_lch[2]
         )
-    return delta_e(generated_lab, user_lab) + hue_penalty
+    return delta_e(generated_lab, user_lab) #+ hue_penalty
 
 
 def map_palette_to_user_palette(
