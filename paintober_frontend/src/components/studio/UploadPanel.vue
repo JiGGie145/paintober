@@ -86,7 +86,10 @@ async function submit() {
     formData.append('image', selectedFile.value)
 
     // Append each param
-    formData.append('k_colors', params.value.k_colors)
+    const kColors = params.value.use_user_palette
+      ? Math.min(params.value.k_colors, params.value.user_palette_hex.length)
+      : params.value.k_colors
+    formData.append('k_colors', kColors)
     formData.append('line_thickness', params.value.line_thickness)
     formData.append('smooth_method', params.value.smooth_method)
     formData.append('blur_sigma', params.value.blur_sigma)
