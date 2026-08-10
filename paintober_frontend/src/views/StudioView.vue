@@ -12,6 +12,7 @@ const route = useRoute()
 const router = useRouter()
 const jobStore = useJobStore()
 const { start: startPoller } = useJobPoller()
+const processingFile = ref(null)
 
 // ── Re-hydrate from URL (on load AND when param changes) ────────
 const rehydrating = ref(false)
@@ -20,10 +21,12 @@ async function hydrateFromParam(jobId) {
   if (!jobId) {
     // No param — clear any active job and show the upload form
     jobStore.reset()
+    processingFile.value = null
     return
   }
   if (jobStore.id === jobId) return  // already loaded — nothing to do
   rehydrating.value = true
+  processingFile.value = null
   jobStore.reset()
   try {
     const job = await getJob(jobId)
@@ -56,7 +59,12 @@ const showProcessing  = computed(() => !rehydrating.value && (jobStore.status ==
 const showResults     = computed(() => !rehydrating.value && jobStore.status === 'done')
 const showFailed      = computed(() => !rehydrating.value && jobStore.status === 'failed')
 
+function handleJobCreated(file) {
+  processingFile.value = file
+}
+
 function startOver() {
+  processingFile.value = null
   jobStore.reset()
   router.push({ name: 'studio' })
 }
@@ -72,10 +80,10 @@ function startOver() {
     </div>
 
     <!-- Upload & Configure -->
-    <UploadPanel v-if="showUpload" />
+    <UploadPanel v-if="showUpload" @job-created="handleJobCreated" />
 
     <!-- Processing -->
-    <ProcessingScreen v-else-if="showProcessing" />
+    <ProcessingScreen v-else-if="showProcessing" :file="processingFile" />
 
     <!-- Results -->
     <ResultsScreen v-else-if="showResults" @start-over="startOver" />

@@ -1,14 +1,37 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useJobStore } from '../../stores/jobStore.js'
+import ParticleWalker from './ParticleWalker.vue'
+import { getLoadingAnimationProfile } from '../../utils/loadingAnimation.js'
+
+defineProps({
+  file: {
+    type: Object,
+    default: null,
+  },
+})
 
 const jobStore = useJobStore()
+const animationProfile = ref({ mode: 'simple', resolution: 0 })
+const walkerFailed = ref(false)
 
 const statusText = computed(() =>
   jobStore.status === 'processing'
     ? 'Processing your image…'
     : 'Queued — starting soon…'
 )
+
+const useParticleWalker = computed(() =>
+  Boolean(animationProfile.value.mode === 'particle' && !walkerFailed.value)
+)
+
+onMounted(() => {
+  animationProfile.value = getLoadingAnimationProfile()
+})
+
+function handleWalkerFailure() {
+  walkerFailed.value = true
+}
 </script>
 
 <template>
@@ -22,8 +45,13 @@ const statusText = computed(() =>
     <p class="processing__heading">Generating your paint-by-numbers kit</p>
     <p class="processing__status">{{ statusText }}</p>
     
-    <!-- Loading Animation -->
-    <span class="loader"></span>
+    <ParticleWalker
+      v-if="file && useParticleWalker"
+      :file="file"
+      :resolution="animationProfile.resolution"
+      @failed="handleWalkerFailure"
+    />
+    <span v-else class="loader" aria-hidden="true"></span>
 
     <!-- Job ID -->
     <p class="processing__id">Job ID: {{ jobStore.id }}</p>
@@ -209,6 +237,14 @@ const statusText = computed(() =>
 @keyframes panex {
   0%{  transform: rotate(-5deg)  }
   100%{  transform: rotate(10deg)  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .processing__step-dot--active,
+  .loader,
+  .loader::after {
+    animation: none;
+  }
 }
   
 </style>

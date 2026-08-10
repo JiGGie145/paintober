@@ -11,6 +11,7 @@ import { usePalettes } from '../../composables/usePalettes.js'
 
 const jobStore = useJobStore()
 const { palettes, loading: palettesLoading, fetchPalettes } = usePalettes()
+const emit = defineEmits(['job-created'])
 
 const selectedFile = ref(null)
 const submitting = ref(false)
@@ -106,6 +107,7 @@ async function submit() {
 
     const result = await createJob(formData)
     jobStore.setFromCreateResponse(result)
+    emit('job-created', selectedFile.value)
   } catch (err) {
     submitError.value = parseApiError(err)
   } finally {
