@@ -1,0 +1,26 @@
+FROM python:3.13-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    MPLBACKEND=Agg
+
+WORKDIR /app
+
+# Runtime libraries required by OpenCV and Pillow in the processor.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libgl1 \
+        libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml poetry.lock ./
+
+RUN pip install --no-cache-dir poetry \
+    && poetry config virtualenvs.create false \
+    && poetry install --only main --no-interaction --no-ansi
+
+COPY . .
+
+# This image is intended for Cloud Run Jobs. It claims at most one pending
+# job, processes it, and exits so the job execution can be retried by Cloud Run.
+CMD ["python", "manage.py", "run_poll_and_process"]

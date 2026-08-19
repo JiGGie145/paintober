@@ -1,23 +1,15 @@
 import logging
+import tempfile
 from pathlib import Path
 
 from django.conf import settings
 from django.db import transaction
 
 from jobs.models import Job, JobStatus
+from jobs.storage import get_job_storage
 from pipeline.processor import run_pipeline
 
 logger = logging.getLogger("jobs")
-
-
-def _media(relative_path: str) -> str:
-    """Return absolute path string for a MEDIA_ROOT-relative path."""
-    return str(Path(settings.MEDIA_ROOT) / relative_path)
-
-
-def _relative(absolute_path: str) -> str:
-    """Return MEDIA_ROOT-relative path string from an absolute path."""
-    return str(Path(absolute_path).relative_to(settings.MEDIA_ROOT))
 
 
 def poll_and_process() -> None:
@@ -55,18 +47,40 @@ def poll_and_process() -> None:
     logger.info("Job claimed | job_id=%s retry=%d", job_id, job.retry_count)
 
     try:
-        image_abs = _media(job.input_file)
-        output_dir = Path(settings.MEDIA_ROOT) / "outputs" / job_id
+        storage = get_job_storage()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            image_path = temp_root / "input.png"
+            output_dir = temp_root / "outputs"
+            storage.download_upload(job.input_file, image_path)
+            result = run_pipeline(str(image_path), output_dir, job.parameters)
 
-        result = run_pipeline(image_abs, output_dir, job.parameters)
+            output_keys = {
+                "output_outline": f"{settings.GCS_OBJECT_PREFIX}/{job_id}/outputs/outline.png" if settings.GCS_ENABLED else f"outputs/{job_id}/outline.png",
+                "output_color": f"{settings.GCS_OBJECT_PREFIX}/{job_id}/outputs/quantized_color.png" if settings.GCS_ENABLED else f"outputs/{job_id}/quantized_color.png",
+                "output_palette": f"{settings.GCS_OBJECT_PREFIX}/{job_id}/outputs/palette.png" if settings.GCS_ENABLED else f"outputs/{job_id}/palette.png",
+                "output_zip": f"{settings.GCS_OBJECT_PREFIX}/{job_id}/outputs/results.zip" if settings.GCS_ENABLED else f"outputs/{job_id}/results.zip",
+            }
+            content_types = {
+                "output_outline": "image/png",
+                "output_color": "image/png",
+                "output_palette": "image/png",
+                "output_zip": "application/zip",
+            }
+            stored_outputs = {
+                field: storage.save_result(
+                    output_keys[field], Path(result[field]), content_types[field]
+                )
+                for field in output_keys
+            }
 
         with transaction.atomic():
             job.refresh_from_db()
             job.status = JobStatus.DONE
-            job.output_outline = _relative(result["output_outline"])
-            job.output_color = _relative(result["output_color"])
-            job.output_palette = _relative(result["output_palette"])
-            job.output_zip = _relative(result["output_zip"])
+            job.output_outline = stored_outputs["output_outline"]
+            job.output_color = stored_outputs["output_color"]
+            job.output_palette = stored_outputs["output_palette"]
+            job.output_zip = stored_outputs["output_zip"]
             job.save(update_fields=[
                 "status", "output_outline", "output_color",
                 "output_palette", "output_zip", "updated_at",

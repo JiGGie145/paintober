@@ -26,6 +26,20 @@ JOB_POLL_INTERVAL_SECONDS: int = 5
 # Maximum job retries before marking status=failed
 JOB_MAX_RETRIES: int = 2
 
+# Job image storage. Keep local storage as the development default; production
+# should set GCS_ENABLED=true and provide both bucket names.
+GCS_ENABLED = config('GCS_ENABLED', default=False, cast=bool)
+GCS_UPLOAD_BUCKET_NAME = config('GCS_UPLOAD_BUCKET_NAME', default='')
+GCS_RESULTS_BUCKET_NAME = config('GCS_RESULTS_BUCKET_NAME', default='')
+GCS_PROJECT_ID = config('GCS_PROJECT_ID', default='')
+GCS_OBJECT_PREFIX = config('GCS_OBJECT_PREFIX', default='jobs')
+GCS_SIGNED_URL_EXPIRY_SECONDS = config('GCS_SIGNED_URL_EXPIRY_SECONDS', default=3600, cast=int)
+
+if GCS_ENABLED and not GCS_UPLOAD_BUCKET_NAME:
+    raise RuntimeError('GCS_UPLOAD_BUCKET_NAME must be set when GCS_ENABLED=true')
+if GCS_ENABLED and not GCS_RESULTS_BUCKET_NAME:
+    raise RuntimeError('GCS_RESULTS_BUCKET_NAME must be set when GCS_ENABLED=true')
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/

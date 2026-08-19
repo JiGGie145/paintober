@@ -1,10 +1,11 @@
 import logging
 import mimetypes
+import tempfile
 from pathlib import Path
 
 from django.conf import settings
 from django.core import signing
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponseRedirect
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -17,6 +18,7 @@ from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiType
 
 from .models import Job, JobStatus
 from .serializers import JobCreateResponseSerializer, JobCreateSerializer, JobListSerializer, JobStatusSerializer
+from .storage import get_job_storage
 from .throttles import JobCreationThrottle
 
 logger = logging.getLogger("jobs")
@@ -98,7 +100,25 @@ class JobCreateView(APIView):
                 status=status.HTTP_402_PAYMENT_REQUIRED,
             )
 
-        # Save upload
+        from pipeline.processor import normalise_upload, SUPPORTED_FORMATS
+
+        suffix = Path(image_file.name).suffix.lower() or ".png"
+        if suffix not in SUPPORTED_FORMATS:
+            return Response(
+                {"detail": f"Unsupported format '{suffix}'. Accepted: jpg, jpeg, png, webp."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            storage = get_job_storage()
+        except Exception:
+            logger.exception("Could not initialize job storage")
+            return Response(
+                {"detail": "Image storage is temporarily unavailable."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        # Normalize locally, then persist only the canonical PNG in job storage.
         job = Job(parameters=serializer.extract_params())
         if request.user.is_authenticated:
             job.user = request.user
@@ -106,33 +126,26 @@ class JobCreateView(APIView):
             job.session_key = request.session.session_key
         job.save()
 
-        upload_dir = Path(settings.MEDIA_ROOT) / "uploads" / str(job.id)
-        upload_dir.mkdir(parents=True, exist_ok=True)
-
-        suffix = Path(image_file.name).suffix.lower() or ".png"
-        dest = upload_dir / f"original{suffix}"
-        with open(dest, "wb") as f:
-            for chunk in image_file.chunks():
-                f.write(chunk)
-
-        # Normalise to PNG
-        from pipeline.processor import normalise_upload, SUPPORTED_FORMATS
-        if suffix not in SUPPORTED_FORMATS:
-            job.delete()
-            return Response(
-                {"detail": f"Unsupported format '{suffix}'. Accepted: jpg, jpeg, png, webp."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        png_dest = upload_dir / "original.png"
+        if settings.GCS_ENABLED:
+            input_key = f"{settings.GCS_OBJECT_PREFIX}/{job.id}/input/original.png"
+        else:
+            input_key = f"uploads/{job.id}/original.png"
         try:
-            normalise_upload(dest, png_dest)
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_dir_path = Path(temp_dir)
+                source = temp_dir_path / f"original{suffix}"
+                png_dest = temp_dir_path / "original.png"
+                with source.open("wb") as destination:
+                    for chunk in image_file.chunks():
+                        destination.write(chunk)
+                normalise_upload(source, png_dest)
+                storage.save_upload(input_key, png_dest, "image/png")
         except Exception as exc:
+            storage.delete_upload(input_key)
             job.delete()
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        if dest != png_dest:
-            dest.unlink(missing_ok=True)
 
-        job.input_file = str(png_dest.relative_to(settings.MEDIA_ROOT))
+        job.input_file = input_key
         job.status = JobStatus.PENDING
         job.save(update_fields=["input_file", "status", "updated_at"])
 
@@ -227,11 +240,19 @@ class JobDownloadView(APIView):
         if not relative_path:
             raise Http404
 
-        abs_path = Path(settings.MEDIA_ROOT) / relative_path
-        if not abs_path.exists():
+        storage = get_job_storage()
+        if not storage.result_exists(relative_path):
             raise Http404
 
-        content_type, _ = mimetypes.guess_type(str(abs_path))
+        if storage.is_remote:
+            return HttpResponseRedirect(
+                storage.signed_result_url(
+                    relative_path, settings.GCS_SIGNED_URL_EXPIRY_SECONDS
+                )
+            )
+
+        abs_path = Path(settings.MEDIA_ROOT) / relative_path
+        content_type, _ = mimetypes.guess_type(relative_path)
         response = FileResponse(
             open(abs_path, "rb"),
             content_type=content_type or "application/octet-stream",
