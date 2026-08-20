@@ -60,10 +60,21 @@ class GCSJobStorage:
 
     def __init__(self) -> None:
         from google.cloud import storage
+        from google.oauth2 import service_account
 
-        self.client = storage.Client(
-            project=getattr(settings, "GCS_PROJECT_ID", None) or None,
+        credentials_path = getattr(settings, "GCS_CREDENTIALS_PATH", "")
+        credentials = (
+            service_account.Credentials.from_service_account_file(credentials_path)
+            if credentials_path 
+            else None
         )
+
+        client_kwargs = {
+            "project": getattr(settings, "GCS_PROJECT_ID", None) or None,
+        }
+        if credentials is not None:
+            client_kwargs["credentials"] = credentials
+        self.client = storage.Client(**client_kwargs)
         self.upload_bucket = self.client.bucket(settings.GCS_UPLOAD_BUCKET_NAME)
         self.results_bucket = self.client.bucket(settings.GCS_RESULTS_BUCKET_NAME)
 

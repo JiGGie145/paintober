@@ -32,8 +32,19 @@ GCS_ENABLED = config('GCS_ENABLED', default=False, cast=bool)
 GCS_UPLOAD_BUCKET_NAME = config('GCS_UPLOAD_BUCKET_NAME', default='')
 GCS_RESULTS_BUCKET_NAME = config('GCS_RESULTS_BUCKET_NAME', default='')
 GCS_PROJECT_ID = config('GCS_PROJECT_ID', default='')
+GCS_CREDENTIALS_PATH = config('GOOGLE_APPLICATION_CREDENTIALS', default='')
 GCS_OBJECT_PREFIX = config('GCS_OBJECT_PREFIX', default='jobs')
 GCS_SIGNED_URL_EXPIRY_SECONDS = config('GCS_SIGNED_URL_EXPIRY_SECONDS', default=3600, cast=int)
+
+# Cloud Run worker triggering. Leave disabled unless the API should start the
+# configured Cloud Run Job whenever a job is queued.
+CLOUD_RUN_JOB_ENABLED = config('CLOUD_RUN_JOB_ENABLED', default=False, cast=bool)
+CLOUD_RUN_JOB_NAME = config('CLOUD_RUN_JOB_NAME', default='paintober-worker')
+CLOUD_RUN_JOB_REGION = config('CLOUD_RUN_JOB_REGION', default='us-east1')
+CLOUD_RUN_PROJECT_ID = config(
+    'CLOUD_RUN_PROJECT_ID',
+    default=GCS_PROJECT_ID,
+)
 
 if GCS_ENABLED and not GCS_UPLOAD_BUCKET_NAME:
     raise RuntimeError('GCS_UPLOAD_BUCKET_NAME must be set when GCS_ENABLED=true')
