@@ -2,7 +2,7 @@
 .env.*
 .venv/
 __pycache__/
-*.py[cod]
+*.pyc
 *.sqlite3
 media/
 logs/
@@ -12,3 +12,4 @@ staticfiles/
 Dockerfile*
 README*
 tests/
+gcloud/

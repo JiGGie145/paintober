@@ -7,9 +7,11 @@ Entry point: run_pipeline(image_path, output_dir, params) -> dict
 
 import io
 import logging
+import time
 import zipfile
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import cv2
 import matplotlib
@@ -23,6 +25,20 @@ from skimage.color import rgb2lab
 from sklearn.cluster import KMeans
 
 logger = logging.getLogger("pipeline")
+
+
+@contextmanager
+def timed_stage(name: str) -> Iterator[None]:
+    """Log elapsed wall-clock time for a pipeline stage."""
+    started = time.perf_counter()
+    try:
+        yield
+    finally:
+        logger.info(
+            "Pipeline stage | stage=%s elapsed_seconds=%.3f",
+            name,
+            time.perf_counter() - started,
+        )
 
 # ── Defaults (mirror notebook cell 3) ─────────────────────────────────────
 DEFAULTS: Dict[str, Any] = {
@@ -116,14 +132,18 @@ def quantize_colors(
     smooth_method: str = "meanshift",
 ) -> Tuple[np.ndarray, np.ndarray]:
     h, w = img.shape[:2]
-    smoothed = preprocess_image(img, smooth_method, blur_sigma)
-    pixels = smoothed.reshape(-1, 3).astype(np.float32)
-    # Don't ask KMeans for more clusters than unique colors that exist.
-    n_unique = len(np.unique(pixels.astype(np.uint8), axis=0))
-    k_colours = max(1, min(k, n_unique))
-    kmeans = KMeans(n_clusters=k_colours, random_state=42, n_init=4)
-    label_map = kmeans.fit_predict(pixels).reshape(h, w)
-    palette = np.clip(kmeans.cluster_centers_, 0, 255).astype(np.uint8)
+    with timed_stage("preprocess_image"):
+        smoothed = preprocess_image(img, smooth_method, blur_sigma)
+    with timed_stage("prepare_kmeans_pixels"):
+        pixels = smoothed.reshape(-1, 3).astype(np.float32)
+    with timed_stage("find_unique_colors"):
+        # Don't ask KMeans for more clusters than unique colors that exist.
+        n_unique = len(np.unique(pixels.astype(np.uint8), axis=0))
+        k_colours = max(1, min(k, n_unique))
+    with timed_stage("kmeans"):
+        kmeans = KMeans(n_clusters=k_colours, random_state=42, n_init=4)
+        label_map = kmeans.fit_predict(pixels).reshape(h, w)
+        palette = np.clip(kmeans.cluster_centers_, 0, 255).astype(np.uint8)
     return label_map, palette
 
 
@@ -488,57 +508,70 @@ def run_pipeline(image_path: str, output_dir: Path, params: Dict[str, Any]) -> D
         'output_outline', 'output_color', 'output_palette', 'output_zip'
     """
     p = {**DEFAULTS, **params}
+    pipeline_started = time.perf_counter()
 
     logger.info("Pipeline start | image=%s k=%s", image_path, p["k_colors"])
 
     # Stage 1 — Load
-    img = load_image(image_path)
+    with timed_stage("load_image"):
+        img = load_image(image_path)
 
     # Stage 2 — Quantize after pbn_v2-style smoothing
-    label_map, palette = quantize_colors(
-        img,
-        k=p["k_colors"],
-        blur_sigma=p["blur_sigma"],
-        smooth_method=p["smooth_method"],
-    )
+    with timed_stage("quantize_colors"):
+        label_map, palette = quantize_colors(
+            img,
+            k=p["k_colors"],
+            blur_sigma=p["blur_sigma"],
+            smooth_method=p["smooth_method"],
+        )
 
     # Stage 3b — BYOP (optional)
     if p["use_user_palette"]:
-        user_palette_rgb = _parse_user_palette(p)
-        if user_palette_rgb:
-            mapping = map_palette_to_user_palette(
-                palette, user_palette_rgb, allow_reuse=p["allow_color_reuse"]
-            )
-            palette = np.asarray(
-                [mapping[index] for index in range(len(palette))],
-                dtype=np.uint8,
-            )
-            logger.debug("BYOP remapping done, palette colours: %d", len(palette))
+        with timed_stage("map_user_palette"):
+            user_palette_rgb = _parse_user_palette(p)
+            if user_palette_rgb:
+                mapping = map_palette_to_user_palette(
+                    palette, user_palette_rgb, allow_reuse=p["allow_color_reuse"]
+                )
+                palette = np.asarray(
+                    [mapping[index] for index in range(len(palette))],
+                    dtype=np.uint8,
+                )
+                logger.debug("BYOP remapping done, palette colours: %d", len(palette))
 
     # Stage 4 — Merge small connected regions
     total_pixels = label_map.shape[0] * label_map.shape[1]
     min_region_pixels = max(20, int(total_pixels * (p["min_region_pct"] / 100.0)))
     if not p["no_merge"]:
-        label_map = merge_small_regions(label_map, min_region_pixels)
+        with timed_stage("merge_small_regions"):
+            label_map = merge_small_regions(label_map, min_region_pixels)
 
     # Stage 5 — Relabel and render
-    label_map, palette = relabel_contiguous(label_map, palette)
-    min_region_for_number = max(40, int(total_pixels * 0.0008))
-    outline = build_outline_image(
-        label_map,
-        min_region_for_number=min_region_for_number,
-        line_thickness=p["line_thickness"],
-    )
-    quantized = build_colored_image(label_map, palette)
+    with timed_stage("render_outputs"):
+        label_map, palette = relabel_contiguous(label_map, palette)
+        min_region_for_number = max(40, int(total_pixels * 0.0008))
+        outline = build_outline_image(
+            label_map,
+            min_region_for_number=min_region_for_number,
+            line_thickness=p["line_thickness"],
+        )
+        quantized = build_colored_image(label_map, palette)
 
     # Stage 8 — Palette image
-    palette_img = create_palette_image(palette)
+    with timed_stage("create_palette_image"):
+        palette_img = create_palette_image(palette)
 
     # Stage 9 — Export
-    asset_paths = export_assets(quantized, outline, palette_img, output_dir)
-    zip_path = create_zip(output_dir, asset_paths)
+    with timed_stage("export_assets"):
+        asset_paths = export_assets(quantized, outline, palette_img, output_dir)
+    with timed_stage("create_zip"):
+        zip_path = create_zip(output_dir, asset_paths)
 
-    logger.info("Pipeline complete | output_dir=%s", output_dir)
+    logger.info(
+        "Pipeline complete | output_dir=%s elapsed_seconds=%.3f",
+        output_dir,
+        time.perf_counter() - pipeline_started,
+    )
 
     return {
         "output_outline": str(asset_paths["outline.png"]),

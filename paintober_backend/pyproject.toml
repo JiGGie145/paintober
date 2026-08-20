@@ -20,10 +20,10 @@ dependencies = [
     "drf-spectacular (>=0.29.0,<0.30.0)",
     "django-cors-headers>=4.7.0,<5",
     "python-decouple>=3.8,<4",
-    "psycopg2-binary>=2.9,<3",
     "gunicorn>=22.0.0,<24",
     "django-storages (>=1.14.6,<2.0.0)",
     "google-cloud-storage (>=3.13.1,<4.0.0)",
+    "psycopg[binary] (>=3.3.4,<4.0.0)",
 ]
 
 [tool.poetry.group.dev.dependencies]

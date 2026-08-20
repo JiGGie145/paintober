@@ -57,3 +57,4 @@ paintober_frontend/spec/Paintober Prototype – Figma Make - *.html
 paintober_frontend/spec/Paintober Prototype – Figma Make - *_files/
 
 *.pyc
+gcloud/

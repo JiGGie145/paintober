@@ -6,4 +6,5 @@ class Command(BaseCommand):
     help = "Claim and process one pending job."
 
     def handle(self, *args, **options):
+        print("STARTING")
         poll_and_process()
