@@ -69,6 +69,7 @@ function onPresetSelected(presetId) {
     ...params.value,
     use_user_palette: true,
     user_palette_hex: set.colors.map((c) => c.hex),
+    k_colors: set.colors.length,
   }
 }
 
@@ -87,8 +88,10 @@ async function submit() {
     formData.append('image', selectedFile.value)
 
     // Append each param
+    // A selected preset/BYOP palette defines the number of colours to use.
+    // Do not retain the auto-generated default of 12 for larger palettes.
     const kColors = params.value.use_user_palette
-      ? Math.min(params.value.k_colors, params.value.user_palette_hex.length)
+      ? params.value.user_palette_hex.length
       : params.value.k_colors
     formData.append('k_colors', kColors)
     formData.append('line_thickness', params.value.line_thickness)
