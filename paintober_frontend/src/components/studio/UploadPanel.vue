@@ -25,7 +25,7 @@ const selectedPresetId = ref(null)
 const params = ref({
   k_colors: 12,
   line_thickness: 1,
-  smooth_method: 'meanshift',
+  smooth_method: 'gaussian',
   blur_sigma: 1.5,
   min_region_pct: 0.03,
   no_merge: false,

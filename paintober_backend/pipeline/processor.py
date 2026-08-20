@@ -44,7 +44,7 @@ def timed_stage(name: str) -> Iterator[None]:
 DEFAULTS: Dict[str, Any] = {
     "k_colors": 12,
     "line_thickness": 1,
-    "smooth_method": "meanshift",
+    "smooth_method": "gaussian",
     "blur_sigma": 1.5,
     "min_region_pct": 0.03,
     "no_merge": False,
@@ -99,7 +99,7 @@ def load_image(path: str) -> np.ndarray:
 
 def preprocess_image(
     img: np.ndarray,
-    smooth_method: str = "meanshift",
+    smooth_method: str = "gaussian",
     blur_sigma: float = 1.5,
 ) -> np.ndarray:
     if smooth_method not in {"meanshift", "bilateral", "gaussian", "none"}:
@@ -129,7 +129,7 @@ def quantize_colors(
     img: np.ndarray,
     k: int = 12,
     blur_sigma: float = 1.5,
-    smooth_method: str = "meanshift",
+    smooth_method: str = "gaussian",
 ) -> Tuple[np.ndarray, np.ndarray]:
     h, w = img.shape[:2]
     with timed_stage("preprocess_image"):
