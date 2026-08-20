@@ -1,5 +1,6 @@
 [project]
 name = "paintober-backend"
+package-mode = false
 version = "0.1.0"
 description = "Paintober Django backend"
 authors = []
