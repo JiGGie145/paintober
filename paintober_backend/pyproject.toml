@@ -23,6 +23,7 @@ dependencies = [
     "gunicorn>=22.0.0,<24",
     "django-storages (>=1.14.6,<2.0.0)",
     "google-cloud-storage (>=3.13.1,<4.0.0)",
+    "google-auth>=2.0,<3",
     "psycopg[binary] (>=3.3.4,<4.0.0)",
 ]
 
