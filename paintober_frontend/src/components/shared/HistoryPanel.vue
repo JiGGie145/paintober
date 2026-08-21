@@ -2,12 +2,14 @@
 import { watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useHistoryStore } from '../../stores/historyStore.js'
+import { useEventContextStore } from '../../stores/eventContextStore.js'
 
 const props = defineProps({ open: Boolean })
 const emit = defineEmits(['close'])
 
 const router = useRouter()
 const historyStore = useHistoryStore()
+const eventContext = useEventContextStore()
 
 // Fetch fresh history whenever the panel opens
 watch(() => props.open, (isOpen) => {
@@ -52,7 +54,7 @@ function openJob(job) {
 
       <!-- Header -->
       <div class="history-panel__header">
-        <h2 class="history-panel__title">History</h2>
+        <h2 class="history-panel__title">{{ eventContext.isActive ? 'Event history' : 'History' }}</h2>
         <button class="history-panel__close" aria-label="Close history" @click="emit('close')">✕</button>
       </div>
 

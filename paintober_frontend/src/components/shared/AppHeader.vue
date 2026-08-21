@@ -1,8 +1,12 @@
 <script setup>
+import { onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import LogoPng from '@/assets/Paintober-Logo.png'
+import { useAuthStore } from '../../stores/authStore.js'
 
 const emit = defineEmits(['toggle-history'])
+const auth = useAuthStore()
+onMounted(() => auth.hydrate())
 </script>
 
 <template>
@@ -12,6 +16,26 @@ const emit = defineEmits(['toggle-history'])
     </RouterLink>
 
     <nav class="nav">
+      <RouterLink
+        v-if="auth.isAuthenticated"
+        to="/organizer"
+        class="nav-link"
+        aria-label="Organizer dashboard"
+        title="Organizer dashboard"
+      >
+        <span class="mobile-nav-icon" aria-hidden="true">🏠</span>
+        <span class="nav-label">Dashboard</span>
+      </RouterLink>
+      <RouterLink
+        v-else
+        to="/login"
+        class="nav-link"
+        aria-label="Host an event"
+        title="Host an event"
+      >
+        <span class="mobile-nav-icon" aria-hidden="true">🎪</span>
+        <span class="nav-label">Host an event</span>
+      </RouterLink>
       <RouterLink to="/studio" class="nav-cta">
         <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
@@ -70,7 +94,15 @@ const emit = defineEmits(['toggle-history'])
 .nav {
   flex: 1;
   display: flex;
+  align-items: center;
+  gap: var(--space-md);
   justify-content: flex-end;
+}
+
+.nav-link {
+  color: var(--color-snow);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
 }
 
 .nav-cta {
@@ -129,9 +161,42 @@ const emit = defineEmits(['toggle-history'])
 }
 
 @media (max-width: 640px) {
+  .app-header {
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .logo-img {
+    width: 88px;
+    height: auto;
+  }
+
+  .nav {
+    gap: 8px;
+  }
+
   .nav-label,
   .history-label {
     display: none;
+  }
+
+  .mobile-nav-icon {
+    display: block;
+    font-size: 1.15rem;
+    line-height: 1;
+  }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background-color: transparent;
+    border: var(--border-sticker-snow);
+    box-shadow: var(--shadow-sticker-sm);
+    border-radius: var(--radius-badge);
+    text-decoration: none;
   }
 
   .nav-icon {
@@ -142,14 +207,14 @@ const emit = defineEmits(['toggle-history'])
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     padding: 0;
   }
 
   .history-btn {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     padding: 0;
     justify-content: center;
   }

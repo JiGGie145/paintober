@@ -36,7 +36,7 @@ function getCsrfToken() {
 // ----------------------------------------------------------------
 // Core fetch wrapper
 // ----------------------------------------------------------------
-async function apiFetch(path, options = {}) {
+export async function apiFetch(path, options = {}) {
   const { method = 'GET', body, headers = {} } = options
 
   const isUnsafe = !['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(
@@ -109,4 +109,11 @@ export function getJob(jobId) {
  */
 export function listJobs() {
   return apiFetch('/jobs/')
+}
+
+export function renameJob(jobId, kitName) {
+  return apiFetch(`/jobs/${jobId}/rename/`, {
+    method: 'PATCH',
+    body: JSON.stringify({ kit_name: kitName }),
+  })
 }

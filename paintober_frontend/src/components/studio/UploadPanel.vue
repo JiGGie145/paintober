@@ -1,5 +1,6 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import FileDropzone from './FileDropzone.vue'
 import ParametersPanel from './ParametersPanel.vue'
 import PaletteSelector from './PaletteSelector.vue'
@@ -8,14 +9,23 @@ import { createJob } from '../../api/jobs.js'
 import { useJobStore } from '../../stores/jobStore.js'
 import { parseApiError } from '../../utils/parseApiError.js'
 import { usePalettes } from '../../composables/usePalettes.js'
+import { listOrganizerEvents } from '../../api/events.js'
+import { useAuthStore } from '../../stores/authStore.js'
+import { useEventContextStore } from '../../stores/eventContextStore.js'
 
 const jobStore = useJobStore()
+const route = useRoute()
+const auth = useAuthStore()
+const eventContext = useEventContextStore()
 const { palettes, loading: palettesLoading, fetchPalettes } = usePalettes()
 const emit = defineEmits(['job-created'])
 
 const selectedFile = ref(null)
 const submitting = ref(false)
 const submitError = ref(null)
+const organizerEvents = ref([])
+const selectedEventId = ref('')
+const kitName = ref('')
 
 // 'auto' | 'preset' | 'byop'
 const paletteMode = ref('auto')
@@ -32,6 +42,18 @@ const params = ref({
   use_user_palette: false,
   allow_color_reuse: true,
   user_palette_hex: [],
+})
+
+onMounted(async () => {
+  if (!auth.hydrated) await auth.hydrate()
+  if (!auth.isAuthenticated || eventContext.isActive) return
+  try {
+    organizerEvents.value = (await listOrganizerEvents()).filter((event) => event.accepts_new_generations)
+    const requestedEventId = String(route.query.eventId ?? '')
+    if (organizerEvents.value.some((event) => event.id === requestedEventId)) selectedEventId.value = requestedEventId
+  } catch {
+    organizerEvents.value = []
+  }
 })
 
 // React to palette mode changes
@@ -86,6 +108,8 @@ async function submit() {
   try {
     const formData = new FormData()
     formData.append('image', selectedFile.value)
+    if (kitName.value.trim()) formData.append('kit_name', kitName.value.trim())
+    if (selectedEventId.value) formData.append('event_id', selectedEventId.value)
 
     // Append each param
     // A selected preset/BYOP palette defines the number of colours to use.
@@ -123,6 +147,16 @@ async function submit() {
   <div class="upload-panel">
     <h1 class="upload-panel__heading">Create Your Kit</h1>
     <p class="upload-panel__sub">Upload a photo and we'll turn it into a paint-by-numbers kit.</p>
+
+    <div class="upload-panel__kit-options">
+      <label for="kit-name">Kit name <span>(optional)</span></label>
+      <input id="kit-name" v-model="kitName" maxlength="200" placeholder="e.g. Summer garden" />
+      <label v-if="auth.isAuthenticated && !eventContext.isActive" for="kit-event">Create for event</label>
+      <select v-if="auth.isAuthenticated && !eventContext.isActive" id="kit-event" v-model="selectedEventId">
+        <option value="">Personal kit</option>
+        <option v-for="event in organizerEvents" :key="event.id" :value="event.id">{{ event.name }}</option>
+      </select>
+    </div>
 
     <FileDropzone @file-selected="onFileSelected" />
 
@@ -176,6 +210,35 @@ async function submit() {
   color: var(--color-snow);
   text-shadow: 3px 3px 0 var(--color-midnight);
   align-self: center;
+}
+
+.upload-panel__kit-options {
+  display: grid;
+  gap: var(--space-sm);
+  max-width: 620px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.upload-panel__kit-options label {
+  color: var(--color-lime);
+  font-weight: var(--weight-bold);
+}
+
+.upload-panel__kit-options label span {
+  color: var(--color-lavender);
+  font-weight: var(--weight-normal);
+}
+
+.upload-panel__kit-options input,
+.upload-panel__kit-options select {
+  min-height: 48px;
+  padding: 0 var(--space-md);
+  border: var(--border-sticker-snow);
+  border-radius: var(--radius-sm);
+  background: var(--color-snow);
+  color: var(--color-bg);
+  font-size: var(--text-body);
 }
 
 .upload-panel__sub {
