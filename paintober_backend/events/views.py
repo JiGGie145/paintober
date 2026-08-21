@@ -21,8 +21,10 @@ from .services import (
     event_allocated_credits,
     event_available_credits,
     event_consumed_credits,
+    organizer_allocated_credits,
     event_reserved_credits,
     organizer_available_credits,
+    organizer_total_credits,
 )
 from jobs.models import Job, JobStatus
 from jobs.views import _signed_url
@@ -51,7 +53,13 @@ class OrganizerCreditBalanceView(APIView):
 
     def get(self, request):
         organizer = organizer_profile(request)
-        return Response({"available_credits": organizer_available_credits(organizer)})
+        total_credits = organizer_total_credits(organizer)
+        allocated_credits = organizer_allocated_credits(organizer)
+        return Response({
+            "total_credits": total_credits,
+            "allocated_credits": allocated_credits,
+            "available_credits": max(total_credits - allocated_credits, 0),
+        })
 
 
 class AdminCreditGrantView(APIView):

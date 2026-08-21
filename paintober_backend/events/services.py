@@ -13,16 +13,24 @@ from .models import (
 
 
 def organizer_available_credits(organizer):
-    grants = CreditLedgerEntry.objects.filter(
+    total = organizer_total_credits(organizer)
+    allocated = organizer_allocated_credits(organizer)
+    return max(total - allocated, 0)
+
+
+def organizer_total_credits(organizer):
+    return max(CreditLedgerEntry.objects.filter(
         organizer=organizer,
         event__isnull=True,
         entry_type__in=[LedgerEntryType.GRANT, LedgerEntryType.ADJUSTMENT],
-    ).aggregate(total=Sum("quantity"))["total"] or 0
-    allocated = CreditLedgerEntry.objects.filter(
+    ).aggregate(total=Sum("quantity"))["total"] or 0, 0)
+
+
+def organizer_allocated_credits(organizer):
+    return CreditLedgerEntry.objects.filter(
         organizer=organizer,
         entry_type=LedgerEntryType.ALLOCATION,
     ).aggregate(total=Sum("quantity"))["total"] or 0
-    return max(grants - allocated, 0)
 
 
 def event_allocated_credits(event):
