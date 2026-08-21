@@ -19,7 +19,7 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiTypes, extend_schema
 
 from events.models import Attendee, Event, OrganizerProfile
-from events.services import reserve_event_credit, release_credit_reservation
+from events.services import organizer_available_credits, reserve_event_credit, release_credit_reservation
 
 from .models import Job, JobStatus
 from .serializers import JobCreateResponseSerializer, JobCreateSerializer, JobListSerializer, JobStatusSerializer
@@ -138,8 +138,8 @@ class JobCreateView(APIView):
 
         has_credits = (
             request.user.is_authenticated
-            and hasattr(request.user, "profile")
-            and request.user.profile.credits > 0
+            and hasattr(request.user, "organizer_profile")
+            and organizer_available_credits(request.user.organizer_profile) > 0
         )
         if attendee is None and jobs_today >= free_limit and not has_credits:
             return Response(
