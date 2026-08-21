@@ -18,6 +18,8 @@ class JobCreateResponseSerializer(serializers.Serializer):
 
 class JobCreateSerializer(serializers.Serializer):
     image = serializers.ImageField(write_only=True)
+    kit_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    event_id = serializers.UUIDField(required=False, allow_null=True)
     # Pipeline parameters — all optional, pipeline defaults apply
     k_colors = serializers.IntegerField(min_value=2, max_value=32, required=False)
     line_thickness = serializers.IntegerField(min_value=1, max_value=10, required=False)
@@ -63,7 +65,7 @@ class JobStatusSerializer(serializers.ModelSerializer):
         model = Job
         fields = [
             "id", "status", "retry_count", "error_message",
-            "parameters", "created_at", "updated_at", "download_urls",
+            "kit_name", "parameters", "created_at", "updated_at", "download_urls",
         ]
         read_only_fields = fields
 
@@ -86,5 +88,5 @@ class JobStatusSerializer(serializers.ModelSerializer):
 class JobListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
-        fields = ["id", "status", "retry_count", "created_at", "updated_at"]
+        fields = ["id", "status", "retry_count", "kit_name", "created_at", "updated_at"]
         read_only_fields = fields

@@ -25,6 +25,20 @@ class Job(models.Model):
         related_name="jobs",
     )
     session_key = models.CharField(max_length=40, null=True, blank=True, db_index=True)
+    event = models.ForeignKey(
+        "events.Event",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="jobs",
+    )
+    attendee = models.ForeignKey(
+        "events.Attendee",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="jobs",
+    )
 
     status = models.CharField(
         max_length=12,
@@ -34,6 +48,7 @@ class Job(models.Model):
     )
     retry_count = models.PositiveSmallIntegerField(default=0)
     error_message = models.TextField(null=True, blank=True)
+    kit_name = models.CharField(max_length=200, null=True, blank=True)
 
     # Pipeline parameters supplied at submission time
     parameters = models.JSONField(default=dict)
@@ -50,6 +65,10 @@ class Job(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["event", "status"]),
+            models.Index(fields=["attendee", "status"]),
+        ]
 
     def __str__(self) -> str:
         owner = self.user_id or self.session_key or "anonymous"

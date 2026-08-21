@@ -25,6 +25,8 @@ FREE_JOBS_PER_DAY: int = 3
 JOB_POLL_INTERVAL_SECONDS: int = 5
 # Maximum job retries before marking status=failed
 JOB_MAX_RETRIES: int = 2
+EVENT_RESOLUTION_RATE_PER_HOUR: int = config('EVENT_RESOLUTION_RATE_PER_HOUR', default=60, cast=int)
+ATTENDEE_ENTRY_RATE_PER_HOUR: int = config('ATTENDEE_ENTRY_RATE_PER_HOUR', default=10, cast=int)
 
 # Job image storage. Keep local storage as the development default; production
 # should set GCS_ENABLED=true and provide both bucket names.
@@ -80,6 +82,7 @@ INSTALLED_APPS = [
     'jobs',
     'pipeline',
     'palettes',
+    'events',
 ]
 
 MIDDLEWARE = [
@@ -115,6 +118,9 @@ WSGI_APPLICATION = 'paintober_backend.wsgi.application'
 # ── Django REST Framework ──────────────────────────────────────────────────
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
 }
 
 # ── drf-spectacular (OpenAPI / Swagger) ────────────────────────────────────

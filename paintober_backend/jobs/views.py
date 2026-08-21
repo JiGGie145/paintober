@@ -5,16 +5,21 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core import signing
+from django.db import transaction
+from django.db.models import Q
 from django.http import FileResponse, Http404, HttpResponseRedirect
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiTypes, extend_schema
+
+from events.models import Attendee, Event, OrganizerProfile
+from events.services import reserve_event_credit, release_credit_reservation
 
 from .models import Job, JobStatus
 from .serializers import JobCreateResponseSerializer, JobCreateSerializer, JobListSerializer, JobStatusSerializer
@@ -51,6 +56,32 @@ def _get_owner_filter(request: Request) -> dict:
     return {"pk": None}  # no match — no jobs for this request
 
 
+def _get_attendee_context(request: Request):
+    context = request.session.get("paintober_attendee_context")
+    if not context:
+        return None
+    try:
+        attendee_id = int(context["attendee_id"])
+        event_id = context["event_id"]
+        return Attendee.objects.select_related("event").get(pk=attendee_id, event_id=event_id)
+    except (KeyError, TypeError, ValueError, Attendee.DoesNotExist):
+        return None
+
+
+def _authorized_jobs(request: Request):
+    attendee = _get_attendee_context(request)
+    if attendee is not None:
+        return Job.objects.filter(event=attendee.event, attendee=attendee)
+    if request.user and request.user.is_authenticated:
+        return Job.objects.filter(
+            Q(user=request.user) | Q(event__organizer__user=request.user)
+        ).distinct()
+    key = request.session.session_key
+    if key:
+        return Job.objects.filter(session_key=key, event__isnull=True)
+    return Job.objects.none()
+
+
 class JobCreateView(APIView):
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [AllowAny]
@@ -78,7 +109,28 @@ class JobCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Free-tier guard
+        attendee = _get_attendee_context(request)
+        requested_event_id = serializer.validated_data.get("event_id")
+        if attendee is not None and requested_event_id is not None:
+            return Response(
+                {"detail": "The attendee event context cannot be changed here."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        organizer_event = None
+        if requested_event_id is not None:
+            if not request.user.is_authenticated:
+                return Response({"detail": "Sign in to create an event kit."}, status=status.HTTP_401_UNAUTHORIZED)
+            try:
+                organizer_event = Event.objects.get(
+                    id=requested_event_id,
+                    organizer__user=request.user,
+                )
+            except Event.DoesNotExist:
+                return Response({"detail": "Event not found."}, status=status.HTTP_404_NOT_FOUND)
+            if not organizer_event.accepts_new_generations:
+                return Response({"detail": "This event is not accepting new generations."}, status=status.HTTP_409_CONFLICT)
+
+        # Free-tier guard applies only to the retained anonymous flow.
         free_limit = getattr(settings, "FREE_JOBS_PER_DAY", 3)
         today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
         owner_filter = _get_owner_filter(request)
@@ -89,7 +141,7 @@ class JobCreateView(APIView):
             and hasattr(request.user, "profile")
             and request.user.profile.credits > 0
         )
-        if jobs_today >= free_limit and not has_credits:
+        if attendee is None and jobs_today >= free_limit and not has_credits:
             return Response(
                 {
                     "detail": (
@@ -118,36 +170,55 @@ class JobCreateView(APIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        # Normalize locally, then persist only the canonical PNG in job storage.
-        job = Job(parameters=serializer.extract_params())
-        if request.user.is_authenticated:
+        # Create the job and reserve an event credit before committing it to the queue.
+        job = Job(
+            parameters=serializer.extract_params(),
+            kit_name=serializer.validated_data.get("kit_name", "").strip() or None,
+        )
+        if attendee is not None:
+            job.event = attendee.event
+            job.attendee = attendee
+        elif organizer_event is not None:
+            job.event = organizer_event
+            job.user = request.user
+        elif request.user.is_authenticated:
             job.user = request.user
         else:
             job.session_key = request.session.session_key
-        job.save()
-
-        if settings.GCS_ENABLED:
-            input_key = f"{settings.GCS_OBJECT_PREFIX}/{job.id}/input/original.png"
-        else:
-            input_key = f"uploads/{job.id}/original.png"
         try:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_dir_path = Path(temp_dir)
-                source = temp_dir_path / f"original{suffix}"
-                png_dest = temp_dir_path / "original.png"
-                with source.open("wb") as destination:
-                    for chunk in image_file.chunks():
-                        destination.write(chunk)
-                normalise_upload(source, png_dest)
-                storage.save_upload(input_key, png_dest, "image/png")
-        except Exception as exc:
-            storage.delete_upload(input_key)
-            job.delete()
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            with transaction.atomic():
+                job.save()
+                if attendee is not None or organizer_event is not None:
+                    reservation = reserve_event_credit(
+                        attendee.event_id if attendee is not None else organizer_event.id,
+                        attendee.id if attendee is not None else None,
+                        job.id,
+                    )
+                else:
+                    reservation = None
 
-        job.input_file = input_key
-        job.status = JobStatus.PENDING
-        job.save(update_fields=["input_file", "status", "updated_at"])
+                if settings.GCS_ENABLED:
+                    input_key = f"{settings.GCS_OBJECT_PREFIX}/{job.id}/input/original.png"
+                else:
+                    input_key = f"uploads/{job.id}/original.png"
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    temp_dir_path = Path(temp_dir)
+                    source = temp_dir_path / f"original{suffix}"
+                    png_dest = temp_dir_path / "original.png"
+                    with source.open("wb") as destination:
+                        for chunk in image_file.chunks():
+                            destination.write(chunk)
+                    normalise_upload(source, png_dest)
+                    storage.save_upload(input_key, png_dest, "image/png")
+                job.input_file = input_key
+                job.status = JobStatus.PENDING
+                job.save(update_fields=["input_file", "status", "updated_at"])
+        except Exception as exc:
+            if "input_key" in locals():
+                storage.delete_upload(input_key)
+            if isinstance(exc, ValueError):
+                return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         logger.info("Job created | job_id=%s user=%s", job.id, job.user_id or job.session_key)
 
@@ -164,15 +235,36 @@ class JobDetailView(APIView):
     @extend_schema(operation_id="job_retrieve")
     def get(self, request: Request, job_id: str) -> Response:
         owner_filter = _get_owner_filter(request)
-        if "pk" in owner_filter:
-            # No session and no authenticated user — cannot own any job
-            raise Http404
+        # if "pk" in owner_filter:
+        #     # No session and no authenticated user — cannot own any job
+        #     raise Http404
         try:
-            job = Job.objects.get(pk=job_id, **owner_filter)
+            job = _authorized_jobs(request).get(pk=job_id)
         except Job.DoesNotExist:
             raise Http404
         serializer = JobStatusSerializer(job, context={"request": request})
         return Response(serializer.data)
+
+
+class JobRenameView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request: Request, job_id: str) -> Response:
+        try:
+            job = _authorized_jobs(request).get(pk=job_id)
+        except Job.DoesNotExist:
+            raise Http404
+        if not (job.user_id == request.user.id or job.event_id and job.event.organizer.user_id == request.user.id):
+            raise Http404
+        kit_name = request.data.get("kit_name", "")
+        if kit_name is None:
+            kit_name = ""
+        kit_name = str(kit_name).strip()
+        if len(kit_name) > 200:
+            return Response({"detail": "Kit name must be 200 characters or fewer."}, status=status.HTTP_400_BAD_REQUEST)
+        job.kit_name = kit_name or None
+        job.save(update_fields=["kit_name", "updated_at"])
+        return Response(JobStatusSerializer(job, context={"request": request}).data)
 
 
 class JobListView(APIView):
@@ -181,8 +273,7 @@ class JobListView(APIView):
 
     @extend_schema(operation_id="job_list")
     def get(self, request: Request) -> Response:
-        owner_filter = _get_owner_filter(request)
-        jobs = Job.objects.filter(**owner_filter)
+        jobs = _authorized_jobs(request)
         serializer = JobListSerializer(jobs, many=True)
         return Response(serializer.data)
 
@@ -232,7 +323,7 @@ class JobDownloadView(APIView):
             raise Http404
 
         try:
-            job = Job.objects.get(pk=job_id, status=JobStatus.DONE)
+            job = _authorized_jobs(request).get(pk=job_id, status=JobStatus.DONE)
         except Job.DoesNotExist:
             raise Http404
 

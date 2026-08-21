@@ -5,6 +5,8 @@ from pathlib import Path
 from django.conf import settings
 from django.db import transaction
 
+from events.services import finalize_credit_reservation, release_credit_reservation
+
 from jobs.models import Job, JobStatus
 from jobs.storage import get_job_storage
 from pipeline.processor import run_pipeline
@@ -85,6 +87,8 @@ def poll_and_process() -> None:
                 "status", "output_outline", "output_color",
                 "output_palette", "output_zip", "updated_at",
             ])
+            if job.event_id:
+                finalize_credit_reservation(job.id)
 
         logger.info("Job done | job_id=%s", job_id)
 
@@ -108,3 +112,5 @@ def poll_and_process() -> None:
                     job_id, job.retry_count,
                 )
             job.save(update_fields=["status", "retry_count", "error_message", "updated_at"])
+            if job.status == JobStatus.FAILED and job.event_id:
+                release_credit_reservation(job.id, note=str(exc))
