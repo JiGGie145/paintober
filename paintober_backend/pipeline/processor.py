@@ -57,6 +57,7 @@ DEFAULTS: Dict[str, Any] = {
 }
 
 SUPPORTED_FORMATS = {".jpg", ".jpeg", ".png", ".webp"}
+OUTLINE_GREY = (190, 190, 190)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -241,7 +242,7 @@ def build_outline_image(
         border = cv2.dilate(border.astype(np.uint8), np.ones((line_thickness, line_thickness), np.uint8)) > 0
 
     canvas = np.full((h, w, 3), 255, dtype=np.uint8)
-    canvas[border] = (0, 0, 0)
+    canvas[border] = OUTLINE_GREY
     image = Image.fromarray(canvas)
     draw = ImageDraw.Draw(image)
     font_path = _find_font_path()
@@ -268,7 +269,7 @@ def build_outline_image(
             draw.text(
                 (cx - text_width / 2 - bbox[0], cy - text_height / 2 - bbox[1]),
                 text,
-                fill=(0, 0, 0),
+                fill=OUTLINE_GREY,
                 font=font,
             )
 

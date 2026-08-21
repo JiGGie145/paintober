@@ -37,6 +37,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/jobs/', include('jobs.urls')),
     path('api/palettes/', include('palettes.urls')),
+    path('api/auth/', include('events.auth_urls')),
+    path('api/events/', include('events.urls')),
     # OpenAPI schema + docs
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
