@@ -68,11 +68,13 @@ def _get_attendee_context(request: Request):
         return None
 
 
-def _authorized_jobs(request: Request):
+def _authorized_jobs(request: Request, allowsuperuser=False):
     attendee = _get_attendee_context(request)
     if attendee is not None:
         return Job.objects.filter(event=attendee.event, attendee=attendee)
     if request.user and request.user.is_authenticated:
+        if request.user.is_super_user and allowsuperuser:
+            return Job.objects.all()
         return Job.objects.filter(
             Q(user=request.user) | Q(event__organizer__user=request.user)
         ).distinct()
@@ -239,7 +241,7 @@ class JobDetailView(APIView):
         #     # No session and no authenticated user — cannot own any job
         #     raise Http404
         try:
-            job = _authorized_jobs(request).get(pk=job_id)
+            job = _authorized_jobs(request, allowsuperuser=True).get(pk=job_id)
         except Job.DoesNotExist:
             raise Http404
         serializer = JobStatusSerializer(job, context={"request": request})
