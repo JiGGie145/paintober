@@ -1,13 +1,18 @@
 import re
 
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from djoser.serializers import UserCreateSerializer
 
 from .models import Attendee, Event, OrganizerProfile
+
+User = get_user_model()
 
 
 class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(min_length=8, write_only=True)
+    re_password = serializers.CharField(min_length=8, write_only=True)
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
 
     def validate_email(self, value):
@@ -15,6 +20,54 @@ class RegisterSerializer(serializers.Serializer):
         if OrganizerProfile.objects.filter(user__email__iexact=value).exists():
             raise serializers.ValidationError("An account with this email already exists.")
         return value
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["re_password"]:
+            raise serializers.ValidationError({"re_password": "The passwords do not match."})
+        return attrs
+
+
+class OrganizerUserCreateSerializer(UserCreateSerializer):
+    """Djoser user serializer retaining Paintober's email-based user model."""
+
+    email = serializers.EmailField()
+    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+
+    class Meta(UserCreateSerializer.Meta):
+        model = User
+        fields = ["email", "password", "re_password", "first_name"]
+
+    def validate_email(self, value):
+        value = value.lower().strip()
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("An account with this email already exists.")
+        return value
+
+    def create(self, validated_data):
+        validated_data.pop("re_password", None)
+        email = validated_data["email"].lower().strip()
+        user = self.Meta.model(
+            username=email,
+            email=email,
+            first_name=validated_data.get("first_name", ""),
+        )
+        user.set_password(validated_data["password"])
+        user.save()
+        OrganizerProfile.objects.create(user=user)
+        return user
+
+
+class OrganizerUserSerializer(serializers.ModelSerializer):
+    """Djoser current-user representation for organizer-facing clients."""
+
+    class Meta:
+        model = User
+        fields = ["id", "email", "first_name"]
+        read_only_fields = fields
+
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField(write_only=True, required=False, allow_blank=False)
 
 
 class LoginSerializer(serializers.Serializer):
@@ -26,6 +79,12 @@ class OrganizerSerializer(serializers.Serializer):
     id = serializers.IntegerField(source="user_id")
     email = serializers.EmailField(source="user.email")
     first_name = serializers.CharField(source="user.first_name")
+
+
+class TokenResponseSerializer(serializers.Serializer):
+    access = serializers.CharField(read_only=True)
+    refresh = serializers.CharField(read_only=True)
+    organizer = OrganizerSerializer(read_only=True)
 
 
 class EventSerializer(serializers.ModelSerializer):

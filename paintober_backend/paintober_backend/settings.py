@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+from datetime import timedelta
 from decouple import Csv, config
 from pathlib import Path
 
@@ -76,6 +77,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'djoser',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'drf_spectacular',
     'django_apscheduler',
@@ -119,16 +123,59 @@ WSGI_APPLICATION = 'paintober_backend.wsgi.application'
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
+}
+
+# ── Djoser / JWT authentication ───────────────────────────────────────────
+# Organizer API requests use bearer tokens. Django sessions remain enabled
+# for anonymous jobs, attendee context, CSRF, and the Django admin.
+DJOSER = {
+    'LOGIN_FIELD': 'email',
+    'USER_CREATE_PASSWORD_RETYPE': config(
+        'DJOSER_USER_CREATE_PASSWORD_RETYPE',
+        default=True,
+        cast=bool,
+    ),
+    'SERIALIZERS': {
+        'user_create': 'events.serializers.OrganizerUserCreateSerializer',
+        'current_user': 'events.serializers.OrganizerUserSerializer',
+        'user': 'events.serializers.OrganizerUserSerializer',
+    },
+}
+
+SIMPLE_JWT = {
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'ACCESS_TOKEN_LIFETIME': timedelta(
+        minutes=config('JWT_ACCESS_TOKEN_LIFETIME_MINUTES', default=15, cast=int),
+    ),
+    'REFRESH_TOKEN_LIFETIME': timedelta(
+        days=config('JWT_REFRESH_TOKEN_LIFETIME_DAYS', default=7, cast=int),
+    ),
+    'ROTATE_REFRESH_TOKENS': config('JWT_ROTATE_REFRESH_TOKENS', default=True, cast=bool),
+    'BLACKLIST_AFTER_ROTATION': config('JWT_BLACKLIST_AFTER_ROTATION', default=True, cast=bool),
 }
 
 # ── drf-spectacular (OpenAPI / Swagger) ────────────────────────────────────
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Paintober API',
-    'DESCRIPTION': 'REST API for the Paintober image-processing pipeline.',
+    'DESCRIPTION': (
+        'REST API for the Paintober image-processing pipeline. '
+        'Organizer endpoints use Bearer JWT authentication. Anonymous jobs '
+        'and attendee event context continue to use Django sessions; public '
+        'event endpoints do not require authentication.'
+    ),
     'VERSION': '0.1.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    'APPEND_COMPONENTS': {
+        'securitySchemes': {
+            'jwtAuth': {
+                'type': 'http',
+                'scheme': 'bearer',
+                'bearerFormat': 'JWT',
+            },
+        },
+    },
 }
 
 # ── CORS ───────────────────────────────────────────────────────────────────

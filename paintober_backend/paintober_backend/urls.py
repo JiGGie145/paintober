@@ -38,6 +38,8 @@ urlpatterns = [
     path('api/jobs/', include('jobs.urls')),
     path('api/palettes/', include('palettes.urls')),
     path('api/auth/', include('events.auth_urls')),
+    path('api/djoser-auth/', include('djoser.urls')),
+    path('api/djoser-auth/', include('djoser.urls.jwt')),
     path('api/events/', include('events.urls')),
     # OpenAPI schema + docs
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

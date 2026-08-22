@@ -12,7 +12,12 @@ class JobCreationThrottle(SimpleRateThrottle):
         return f"{limit}/hour"
 
     def get_cache_key(self, request, view):
-        if request.user and request.user.is_authenticated:
+        attendee_context = request.session.get("paintober_attendee_context")
+        if attendee_context:
+            # Match job authorization: an active attendee context remains
+            # session-scoped even when the browser also sends a JWT.
+            ident = f"session_{request.session.session_key or 'anon'}"
+        elif request.user and request.user.is_authenticated:
             ident = f"user_{request.user.pk}"
         else:
             ident = f"session_{request.session.session_key or 'anon'}"

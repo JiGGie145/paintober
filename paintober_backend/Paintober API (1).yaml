@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Paintober API
   version: 0.1.0
-  description: REST API for the Paintober image-processing pipeline.
+  description: REST API for the Paintober image-processing pipeline. Organizer endpoints use Bearer JWT authentication. Anonymous jobs and attendee event context continue to use Django sessions; public event endpoints do not require authentication.
 paths:
   /api/jobs/:
     get:
@@ -10,8 +10,7 @@ paths:
       tags:
       - jobs
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       - {}
       responses:
         '200':
@@ -33,8 +32,7 @@ paths:
       tags:
       - jobs
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       - {}
       responses:
         '200':
@@ -74,8 +72,7 @@ paths:
       tags:
       - jobs
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       - {}
       responses:
         '200':
@@ -104,8 +101,7 @@ paths:
               $ref: '#/components/schemas/JobCreate'
         required: true
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       - {}
       responses:
         '201':
@@ -294,10 +290,7 @@ components:
         * `rgb` - rgb
         * `hex` - hex
   securitySchemes:
-    basicAuth:
+    jwtAuth:
       type: http
-      scheme: basic
-    cookieAuth:
-      type: apiKey
-      in: cookie
-      name: sessionid
+      scheme: bearer
+      bearerFormat: JWT

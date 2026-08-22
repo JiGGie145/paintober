@@ -5,6 +5,7 @@ from django.core.cache import cache
 from django.test import TestCase
 from django.test import override_settings
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from jobs.models import Job, JobStatus
 
@@ -50,17 +51,105 @@ class EventAccessApiTests(TestCase):
             quantity=2,
         )
 
-    def test_registration_and_session_me(self):
+    def authenticate_organizer(self, user=None):
+        user = user or self.user
+        refresh = RefreshToken.for_user(user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+        return refresh
+
+    def test_registration_and_jwt_me(self):
         response = self.client.post(
             "/api/auth/register/",
-            {"email": "new@example.com", "password": "strong-password-123"},
+            {
+                "email": "new@example.com",
+                "password": "strong-password-123",
+                "re_password": "strong-password-123",
+            },
             format="json",
         )
         self.assertEqual(response.status_code, 201)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {response.data['access']}")
         self.assertEqual(self.client.get("/api/auth/me/").status_code, 200)
+        self.assertEqual(OrganizerProfile.objects.filter(user__email="new@example.com").count(), 1)
+
+    def test_registration_requires_matching_password_confirmation(self):
+        response = self.client.post(
+            "/api/auth/register/",
+            {
+                "email": "new@example.com",
+                "password": "strong-password-123",
+                "re_password": "different-password-123",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("re_password", response.data)
+
+    def test_registration_rejects_duplicate_email_case_insensitively(self):
+        response = self.client.post(
+            "/api/auth/register/",
+            {
+                "email": "ORGANIZER@EXAMPLE.COM",
+                "password": "strong-password-123",
+                "re_password": "strong-password-123",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_login_returns_jwt_tokens(self):
+        response = self.client.post(
+            "/api/auth/login/",
+            {"email": "ORGANIZER@EXAMPLE.COM", "password": "strong-password-123"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+
+    def test_invalid_login_is_rejected(self):
+        response = self.client.post(
+            "/api/auth/login/",
+            {"email": "organizer@example.com", "password": "wrong-password"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_me_requires_a_valid_bearer_token(self):
+        self.assertEqual(self.client.get("/api/auth/me/").status_code, 401)
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer not-a-token")
+        self.assertEqual(self.client.get("/api/auth/me/").status_code, 401)
+
+    def test_refresh_rotation_and_blacklist_logout(self):
+        refresh = self.authenticate_organizer()
+        refresh_value = str(refresh)
+        response = self.client.post(
+            "/api/djoser-auth/jwt/refresh/",
+            {"refresh": refresh_value},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+        rotated_refresh = response.data["refresh"]
+
+        response = self.client.post(
+            "/api/auth/logout/",
+            {"refresh": rotated_refresh},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 204)
+        response = self.client.post(
+            "/api/djoser-auth/jwt/refresh/",
+            {"refresh": rotated_refresh},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 401)
 
     def test_organizer_can_list_events_and_balance(self):
-        self.client.force_login(self.user)
+        self.authenticate_organizer()
         balance = self.client.get("/api/events/credits/")
         events = self.client.get("/api/events/mine/")
         self.assertEqual(balance.data["available_credits"], 3)
@@ -83,6 +172,40 @@ class EventAccessApiTests(TestCase):
         self.assertEqual(Attendee.objects.count(), 1)
         self.assertEqual(Attendee.objects.get().phone_number, "+0712345678")
         self.assertIn("paintober_attendee_context", self.client.session)
+
+    def test_attendee_context_survives_organizer_jwt_and_logout(self):
+        self.client.post(
+            "/api/events/enter/",
+            {"event_token": self.event.public_token, "phone_number": "+27123456789"},
+            format="json",
+        )
+        attendee_context = self.client.session["paintober_attendee_context"].copy()
+
+        refresh = self.authenticate_organizer()
+        self.assertEqual(self.client.get("/api/auth/me/").status_code, 200)
+        self.assertEqual(self.client.session["paintober_attendee_context"], attendee_context)
+
+        response = self.client.post(
+            "/api/auth/logout/",
+            {"refresh": str(refresh)},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(self.client.session["paintober_attendee_context"], attendee_context)
+
+    def test_attendee_context_takes_precedence_over_organizer_jwt_for_job_access(self):
+        attendee = Attendee.objects.create(event=self.event, phone_number="+27123456789")
+        attendee_job = Job.objects.create(event=self.event, attendee=attendee, status=JobStatus.PROCESSING)
+        organizer_job = Job.objects.create(user=self.user, status=JobStatus.PROCESSING)
+        self.client.post(
+            "/api/events/enter/",
+            {"event_token": self.event.public_token, "phone_number": attendee.phone_number},
+            format="json",
+        )
+        self.authenticate_organizer()
+
+        self.assertEqual(self.client.get(f"/api/jobs/{attendee_job.id}/").status_code, 200)
+        self.assertEqual(self.client.get(f"/api/jobs/{organizer_job.id}/").status_code, 404)
 
     def test_blocked_attendee_cannot_enter(self):
         attendee = Attendee.objects.create(event=self.event, phone_number="+27123456789", status="blocked")
@@ -170,8 +293,18 @@ class EventAccessApiTests(TestCase):
         )
         self.assertEqual(other_client.get(f"/api/jobs/{job.id}/").status_code, 404)
 
+    def test_anonymous_jobs_remain_session_scoped(self):
+        if not self.client.session.session_key:
+            self.client.session.create()
+        session_key = self.client.session.session_key
+        anonymous_job = Job.objects.create(session_key=session_key, status=JobStatus.PROCESSING)
+        self.assertEqual(self.client.get(f"/api/jobs/{anonymous_job.id}/").status_code, 200)
+
+        other_client = APIClient()
+        self.assertEqual(other_client.get(f"/api/jobs/{anonymous_job.id}/").status_code, 404)
+
     def test_organizer_event_kits_include_all_statuses_and_thumbnail_for_done(self):
-        self.client.force_login(self.user)
+        self.authenticate_organizer()
         done_job = Job.objects.create(
             user=self.user,
             event=self.event,
@@ -196,7 +329,7 @@ class EventAccessApiTests(TestCase):
         self.assertIsNone(processing_data["thumbnail_url"])
 
     def test_organizer_can_rename_owned_event_kit_but_not_other_organizer_kit(self):
-        self.client.force_login(self.user)
+        self.authenticate_organizer()
         job = Job.objects.create(user=self.user, event=self.event, status=JobStatus.PENDING)
 
         renamed = self.client.patch(
@@ -214,7 +347,7 @@ class EventAccessApiTests(TestCase):
             password="strong-password-123",
         )
         OrganizerProfile.objects.create(user=other_user)
-        self.client.force_login(other_user)
+        self.authenticate_organizer(other_user)
         self.assertEqual(
             self.client.patch(
                 f"/api/jobs/{job.id}/rename/",
@@ -238,7 +371,7 @@ class EventAccessApiTests(TestCase):
         attendee = Attendee.objects.create(event=self.event, phone_number="+27123456789")
         Job.objects.create(event=self.event, attendee=attendee, status=JobStatus.PENDING)
         Job.objects.create(event=self.event, attendee=attendee, status=JobStatus.DONE)
-        self.client.force_login(self.user)
+        self.authenticate_organizer()
 
         response = self.client.get(f"/api/events/mine/{self.event.id}/attendees/")
 
@@ -249,7 +382,7 @@ class EventAccessApiTests(TestCase):
 
     def test_organizer_can_block_and_unblock_owned_attendee(self):
         attendee = Attendee.objects.create(event=self.event, phone_number="+27123456789")
-        self.client.force_login(self.user)
+        self.authenticate_organizer()
 
         blocked = self.client.patch(
             f"/api/events/mine/{self.event.id}/attendees/{attendee.id}/status/",
