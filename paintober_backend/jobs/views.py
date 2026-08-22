@@ -12,7 +12,6 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -234,7 +233,6 @@ class JobCreateView(APIView):
 class JobDetailView(APIView):
     permission_classes = [AllowAny]
     serializer_class = JobStatusSerializer
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
 
     @extend_schema(operation_id="job_retrieve")
     def get(self, request: Request, job_id: str) -> Response:
