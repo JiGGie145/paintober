@@ -73,7 +73,7 @@ def _authorized_jobs(request: Request, allowsuperuser=False):
     if attendee is not None:
         return Job.objects.filter(event=attendee.event, attendee=attendee)
     if request.user and request.user.is_authenticated:
-        if request.user.is_super_user and allowsuperuser:
+        if request.user.is_superuser and allowsuperuser:
             return Job.objects.all()
         return Job.objects.filter(
             Q(user=request.user) | Q(event__organizer__user=request.user)
