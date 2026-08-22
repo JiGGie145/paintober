@@ -325,7 +325,10 @@ class JobDownloadView(APIView):
             raise Http404
 
         try:
-            job = _authorized_jobs(request, allowsuperuser=True).get(pk=job_id, status=JobStatus.DONE)
+            # The signed URL is the download credential. Normal browser
+            # navigation does not attach the SPA's Authorization header, so
+            # requiring JWT/session authorization here breaks organizer links.
+            job = Job.objects.get(pk=job_id, status=JobStatus.DONE)
         except Job.DoesNotExist:
             raise Http404
 

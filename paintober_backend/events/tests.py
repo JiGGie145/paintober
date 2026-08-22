@@ -328,6 +328,29 @@ class EventAccessApiTests(TestCase):
         processing_data = next(item for item in response.data if item["status"] == JobStatus.PROCESSING)
         self.assertIsNone(processing_data["thumbnail_url"])
 
+    def test_signed_download_url_works_without_browser_auth_headers(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        self.authenticate_organizer()
+        job = Job.objects.create(
+            user=self.user,
+            status=JobStatus.DONE,
+            output_color="outputs/example/quantized_color.png",
+        )
+        with TemporaryDirectory() as media_dir, override_settings(
+            MEDIA_ROOT=media_dir,
+            GCS_ENABLED=False,
+        ):
+            output = Path(media_dir) / job.output_color
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(b"png data")
+            signed_url = self.client.get(f"/api/jobs/{job.id}/").data["download_urls"]["color"]
+            path_and_query = signed_url.split("/api", 1)[1]
+            response = APIClient().get(f"/api{path_and_query}")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(b"".join(response.streaming_content), b"png data")
+
     def test_organizer_can_rename_owned_event_kit_but_not_other_organizer_kit(self):
         self.authenticate_organizer()
         job = Job.objects.create(user=self.user, event=self.event, status=JobStatus.PENDING)
