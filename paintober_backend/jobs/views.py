@@ -325,7 +325,7 @@ class JobDownloadView(APIView):
             raise Http404
 
         try:
-            job = _authorized_jobs(request).get(pk=job_id, status=JobStatus.DONE)
+            job = _authorized_jobs(request, allowsuperuser=True).get(pk=job_id, status=JobStatus.DONE)
         except Job.DoesNotExist:
             raise Http404
 
