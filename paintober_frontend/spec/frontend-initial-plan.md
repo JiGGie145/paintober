@@ -55,7 +55,7 @@ paintober_frontend/
     │   ├── theme.css          ← SINGLE SOURCE OF TRUTH for all tokens
     │   └── main.css           ← global reset; imports theme.css + Google Fonts
     ├── api/
-    │   └── jobs.js            ← CSRF-aware fetch wrapper + all API calls
+    │   └── jobs.js            ← JWT/CSRF-aware fetch wrapper + all API calls
     ├── components/
     │   ├── hero/
     │   │   ├── HeroSection.vue    ← position:relative container, composes layers
@@ -100,7 +100,7 @@ paintober_frontend/
 
 ### ✅ Phase 2 — API Layer & State (COMPLETED)
 
-8. ✅ `src/api/jobs.js`: CSRF-aware fetch wrapper — reads `csrftoken` from `document.cookie`, sends as `X-CSRFToken` header, always includes `credentials: 'include'`; exports `createJob(formData)`, `getJob(jobId)`, `listJobs()`
+8. ✅ `src/api/jobs.js`: JWT/CSRF-aware fetch wrapper — sends a bearer token for organizer requests, reads `csrftoken` from `document.cookie` for session-backed unsafe requests, always includes `credentials: 'include'`; exports `createJob(formData)`, `getJob(jobId)`, `listJobs()`
 9. ✅ `src/stores/jobStore.js` (Pinia): `id`, `status`, `downloadUrls`, `error`, `parameters`; `reset()` action
 10. ✅ `src/stores/historyStore.js` (Pinia): `jobs[]`, `fetchHistory()` action
 11. ✅ `src/composables/useJobPoller.js`: `setInterval` every 5s → `getJob()` → updates jobStore; clears on `done`/`failed`/`onUnmounted`
@@ -164,7 +164,7 @@ paintober_frontend/
 33. ✅ `AppHeader.vue`: "Start Creating →" link target stays `/studio` (no ID)
 
 **Constraints / known limits:**
-- Jobs are scoped to the Django anonymous session cookie — a URL opened in a different browser or incognito tab will receive a 404; the existing error handling (Phase 9) covers this
+- Anonymous jobs are scoped to the Django session cookie — a URL opened in a different browser or incognito tab will receive a 404. Organizer jobs are scoped to the organizer's JWT identity; attendee jobs are scoped to the attendee context in the Django session.
 - No server-side rendering; re-hydration is client-only
 
 ### ✅ Phase 8 — History Panel (COMPLETED)
@@ -201,7 +201,7 @@ paintober_frontend/
 - `HeroBackground.vue`: only decorative shapes/animations, no text or layout whatsoever
 - `HeroContent.vue`: no `position: absolute`, no `background`, no decorative styles — only layout, text, and CTA
 - `useJobPoller` always clears its interval in `onUnmounted`
-- CSRF token read from `document.cookie` at request time (not stored in state)
+- CSRF token read from `document.cookie` at request time (not stored in state); organizer authentication uses bearer JWTs, while anonymous and attendee flows remain session-backed
 
 ---
 

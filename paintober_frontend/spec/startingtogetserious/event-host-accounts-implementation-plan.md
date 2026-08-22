@@ -4,7 +4,8 @@ Implementation checklist for evolving Paintober from anonymous/session-based usa
 
 ## Product Decisions
 
-- Organizer authentication uses Django session authentication with email/password.
+- Organizer authentication uses Djoser-compatible bearer JWTs with email/password.
+- Django sessions remain enabled for anonymous jobs, attendee context, CSRF, and Django admin.
 - Anonymous usage remains available alongside event-based usage.
 - Attendee phone verification is configurable per event and disabled by default.
 - Without OTP, the attendee is recovered using the event link and phone number.
@@ -47,9 +48,9 @@ Implementation checklist for evolving Paintober from anonymous/session-based usa
 ## Phase 2: Authentication and Organizer API
 
 - [x] Add organizer registration endpoint using email/password.
-- [x] Add organizer login endpoint using Django sessions.
+- [x] Add organizer login endpoint issuing Djoser-compatible bearer JWTs.
 - [x] Add organizer logout endpoint.
-- [x] Add current-organizer/session endpoint for frontend hydration.
+- [x] Add current-organizer endpoint for JWT-authenticated frontend hydration.
 - [x] Add authentication validation and password handling through Django's auth APIs.
 - [x] Add permission classes separating organizer endpoints from public/event-attendee endpoints.
 - [x] Add organizer credit-balance endpoint based on ledger state.
@@ -124,7 +125,7 @@ Implementation checklist for evolving Paintober from anonymous/session-based usa
 - [x] Add organizer authentication routes for registration, login, and logout.
 - [x] Add organizer event/overview routes with the smallest usable dashboard surface.
 - [x] Add an event context store containing event details, token, attendee context, and lifecycle state.
-- [x] Add an organizer auth store for current-user hydration and session state.
+- [x] Add an organizer auth store for current-user hydration and JWT state.
 - [x] Add an organizer credit/event store for balances, events, and usage summaries.
 - [x] Add attendee entry state without creating a full account flow.
 - [x] Persist only the minimum event/attendee context needed for same-session navigation.

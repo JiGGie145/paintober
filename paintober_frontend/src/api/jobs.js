@@ -4,6 +4,7 @@
  * In production, set VITE_API_BASE to the full backend URL (e.g. https://my-api.example.com).
  * CSRF token is read fresh from the cookie on every unsafe request.
  */
+import { getAccessToken, refreshAccessToken } from './authTokens.js'
 
 const BASE = (import.meta.env.VITE_API_BASE ?? '') + '/api'
 
@@ -37,7 +38,7 @@ function getCsrfToken() {
 // Core fetch wrapper
 // ----------------------------------------------------------------
 export async function apiFetch(path, options = {}) {
-  const { method = 'GET', body, headers = {} } = options
+  const { method = 'GET', body, headers = {}, skipAuthRefresh = false } = options
 
   const isUnsafe = !['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(
     method.toUpperCase()
@@ -46,6 +47,7 @@ export async function apiFetch(path, options = {}) {
   const requestHeaders = {
     ...headers,
     ...(isUnsafe && { 'X-CSRFToken': getCsrfToken() }),
+    ...(getAccessToken() && { Authorization: `Bearer ${getAccessToken()}` }),
   }
 
   // Let the browser set Content-Type for FormData automatically
@@ -53,12 +55,36 @@ export async function apiFetch(path, options = {}) {
     requestHeaders['Content-Type'] = 'application/json'
   }
 
-  const response = await fetch(`${BASE}${path}`, {
+  let response = await fetch(`${BASE}${path}`, {
     method,
     credentials: 'include',
     headers: requestHeaders,
     body,
   })
+
+  // JSON requests can be safely replayed after an expired access token. Do
+  // not replay FormData uploads because their body may already be consumed.
+  if (
+    response.status === 401 &&
+    !skipAuthRefresh &&
+    !(body instanceof FormData) &&
+    getAccessToken()
+  ) {
+    try {
+      await refreshAccessToken()
+      response = await fetch(`${BASE}${path}`, {
+        method,
+        credentials: 'include',
+        headers: {
+          ...requestHeaders,
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+        body,
+      })
+    } catch {
+      // Preserve the original 401 response and error contract below.
+    }
+  }
 
   if (!response.ok) {
     const error = new Error(`API error: ${response.status}`)
