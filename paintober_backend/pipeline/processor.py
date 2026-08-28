@@ -161,6 +161,7 @@ def merge_small_regions(
         component_map = np.zeros_like(label_map, dtype=np.int64)
         component_sizes: Dict[int, int] = {}
         component_labels: Dict[int, int] = {}
+        component_pixels: Dict[int, Tuple[np.ndarray, np.ndarray]] = {}
         next_id = 1
 
         for label in np.unique(label_map):
@@ -169,8 +170,10 @@ def merge_small_regions(
             component_map[label_mask] = (components + next_id - 1)[label_mask]
             for component_id in range(1, count + 1):
                 global_id = component_id + next_id - 1
-                component_sizes[global_id] = int(np.sum(components == component_id))
+                ys, xs = np.nonzero(components == component_id)
+                component_sizes[global_id] = len(ys)
                 component_labels[global_id] = int(label)
+                component_pixels[global_id] = (ys, xs)
             next_id += count
 
         small_ids = sorted(
@@ -182,17 +185,28 @@ def merge_small_regions(
             break
 
         for component_id in small_ids:
-            mask = component_map == component_id
-            if not mask.any():
+            ys, xs = component_pixels[component_id]
+            if len(ys) == 0:
                 continue
-            border = ndimage.binary_dilation(mask, structure=structure) & ~mask
+
+            # Build the dilation border from stored component coordinates rather
+            # than scanning the complete component_map to recreate a mask.
+            border = np.zeros(label_map.shape, dtype=bool)
+            for y, x in zip(ys, xs):
+                y0 = max(0, y - 1)
+                y1 = min(label_map.shape[0], y + 2)
+                x0 = max(0, x - 1)
+                x1 = min(label_map.shape[1], x + 2)
+                border[y0:y1, x0:x1] = True
+            border[ys, xs] = False
+
             neighbours = component_map[border]
             neighbours = neighbours[neighbours != component_id]
             if neighbours.size == 0:
                 continue
             values, counts = np.unique(neighbours, return_counts=True)
             winner = int(values[np.argmax(counts)])
-            label_map[mask] = component_labels[winner]
+            label_map[ys, xs] = component_labels[winner]
             changed = True
 
         if not changed:
