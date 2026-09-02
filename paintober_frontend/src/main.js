@@ -4,7 +4,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import './assets/main.css'
 import App from './App.vue'
 import { initCsrf } from './api/jobs.js'
-import { useAuthStore } from './stores/authStore.js'
 
 import HomeView from './views/HomeView.vue'
 import StudioView from './views/StudioView.vue'
@@ -31,8 +30,7 @@ const router = createRouter({
 
 const pinia = createPinia()
 
-Promise.allSettled([initCsrf()]).then(async () => {
-  await useAuthStore(pinia).hydrate()
+initCsrf().finally(() => {
   createApp(App)
     .use(router)
     .use(pinia)

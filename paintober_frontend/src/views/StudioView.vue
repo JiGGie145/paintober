@@ -2,7 +2,6 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useJobStore } from '../stores/jobStore.js'
-import { useAuthStore } from '../stores/authStore.js'
 import { useJobPoller } from '../composables/useJobPoller.js'
 import { getJob } from '../api/jobs.js'
 import UploadPanel from '../components/studio/UploadPanel.vue'
@@ -12,7 +11,6 @@ import ResultsScreen from '../components/studio/ResultsScreen.vue'
 const route = useRoute()
 const router = useRouter()
 const jobStore = useJobStore()
-const auth = useAuthStore()
 const { start: startPoller } = useJobPoller()
 const processingFile = ref(null)
 
@@ -41,10 +39,7 @@ async function hydrateFromParam(jobId) {
   }
 }
 
-onMounted(async () => {
-  if (!auth.hydrated) await auth.hydrate()
-  await hydrateFromParam(route.params.jobId)
-})
+onMounted(() => hydrateFromParam(route.params.jobId))
 
 // Re-runs when HistoryPanel (or any navigation) changes the param
 watch(() => route.params.jobId, (jobId) => hydrateFromParam(jobId))

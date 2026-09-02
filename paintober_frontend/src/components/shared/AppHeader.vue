@@ -6,6 +6,7 @@ import { useAuthStore } from '../../stores/authStore.js'
 
 const emit = defineEmits(['toggle-history'])
 const auth = useAuthStore()
+onMounted(() => auth.hydrate())
 </script>
 
 <template>
