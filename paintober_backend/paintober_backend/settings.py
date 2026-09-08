@@ -44,6 +44,16 @@ GCS_CREDENTIALS_PATH = config('GOOGLE_APPLICATION_CREDENTIALS', default='')
 GCS_OBJECT_PREFIX = config('GCS_OBJECT_PREFIX', default='jobs')
 GCS_SIGNED_URL_EXPIRY_SECONDS = config('GCS_SIGNED_URL_EXPIRY_SECONDS', default=3600, cast=int)
 
+# Optional cartoonish outline-only generation through Vertex AI.
+VERTEX_AI_ENABLED = config('VERTEX_AI_ENABLED', default=False, cast=bool)
+VERTEX_AI_PROJECT_ID = config('VERTEX_AI_PROJECT_ID', default='')
+VERTEX_AI_LOCATION = config('VERTEX_AI_LOCATION', default='us-east1')
+VERTEX_AI_MODEL = config(
+    'VERTEX_AI_MODEL',
+    default='gemini-3.1-flash-lite-image',
+)
+VERTEX_AI_CREDENTIALS_PATH = config('VERTEX_AI_CREDENTIALS_PATH', default='')
+
 # Cloud Run worker triggering. Leave disabled unless the API should start the
 # configured Cloud Run Job whenever a job is queued.
 CLOUD_RUN_JOB_ENABLED = config('CLOUD_RUN_JOB_ENABLED', default=False, cast=bool)
