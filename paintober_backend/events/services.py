@@ -9,13 +9,15 @@ from .models import (
     CreditReservationStatus,
     Event,
     LedgerEntryType,
+    OrganizerProfile,
 )
 
 
 def organizer_available_credits(organizer):
     total = organizer_total_credits(organizer)
     allocated = organizer_allocated_credits(organizer)
-    return max(total - allocated, 0)
+    reserved = organizer_reserved_credits(organizer)
+    return max(total - allocated - reserved, 0)
 
 
 def organizer_total_credits(organizer):
@@ -30,6 +32,14 @@ def organizer_allocated_credits(organizer):
     return CreditLedgerEntry.objects.filter(
         organizer=organizer,
         entry_type=LedgerEntryType.ALLOCATION,
+    ).aggregate(total=Sum("quantity"))["total"] or 0
+
+
+def organizer_reserved_credits(organizer):
+    return CreditReservation.objects.filter(
+        organizer=organizer,
+        event__isnull=True,
+        status=CreditReservationStatus.RESERVED,
     ).aggregate(total=Sum("quantity"))["total"] or 0
 
 
@@ -106,8 +116,32 @@ def reserve_event_credit(event_id, attendee_id, job_id):
 
 
 @transaction.atomic
+def reserve_organizer_credit(organizer_id, job_id):
+    organizer = OrganizerProfile.objects.select_for_update().get(pk=organizer_id)
+    if organizer_available_credits(organizer) < 1:
+        raise ValueError("You have no credits remaining.")
+
+    reservation = CreditReservation.objects.create(
+        organizer=organizer,
+        event=None,
+        attendee=None,
+        job_id=job_id,
+        quantity=1,
+    )
+    CreditLedgerEntry.objects.create(
+        organizer=organizer,
+        event=None,
+        entry_type=LedgerEntryType.RESERVATION,
+        quantity=-reservation.quantity,
+        reference=reservation.id,
+        note=f"Reserved for job {job_id}",
+    )
+    return reservation
+
+
+@transaction.atomic
 def finalize_credit_reservation(job_id):
-    reservation = CreditReservation.objects.select_for_update().select_related("event", "organizer").get(job_id=job_id)
+    reservation = CreditReservation.objects.select_for_update().get(job_id=job_id)
     if reservation.status != CreditReservationStatus.RESERVED:
         return reservation
     reservation.status = CreditReservationStatus.CONSUMED
@@ -125,7 +159,7 @@ def finalize_credit_reservation(job_id):
 
 @transaction.atomic
 def release_credit_reservation(job_id, note=""):
-    reservation = CreditReservation.objects.select_for_update().select_related("event", "organizer").get(job_id=job_id)
+    reservation = CreditReservation.objects.select_for_update().get(job_id=job_id)
     if reservation.status != CreditReservationStatus.RESERVED:
         return reservation
     reservation.status = CreditReservationStatus.RELEASED
