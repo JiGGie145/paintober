@@ -1,7 +1,8 @@
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import FileDropzone from './FileDropzone.vue'
+import StyleSelector from './StyleSelector.vue'
 import ParametersPanel from './ParametersPanel.vue'
 import PaletteSelector from './PaletteSelector.vue'
 import ErrorBanner from '../shared/ErrorBanner.vue'
@@ -9,7 +10,7 @@ import { createJob } from '../../api/jobs.js'
 import { useJobStore } from '../../stores/jobStore.js'
 import { parseApiError } from '../../utils/parseApiError.js'
 import { usePalettes } from '../../composables/usePalettes.js'
-import { listOrganizerEvents } from '../../api/events.js'
+import { getCreditBalance, listOrganizerEvents } from '../../api/events.js'
 import { useAuthStore } from '../../stores/authStore.js'
 import { useEventContextStore } from '../../stores/eventContextStore.js'
 
@@ -26,6 +27,30 @@ const submitError = ref(null)
 const organizerEvents = ref([])
 const selectedEventId = ref('')
 const kitName = ref('')
+const style = ref('realistic')
+const outputMode = ref('paint_by_numbers')
+const cartoonStyleEnabled = import.meta.env.VITE_CARTOON_STYLE_ENABLED === 'true'
+const organizerCreditBalance = ref(0)
+const selectedEvent = computed(() => organizerEvents.value.find((event) => event.id === selectedEventId.value))
+const canUseCartoonish = computed(() => {
+  if (!auth.isAuthenticated || eventContext.isActive) return false
+  return selectedEvent.value
+    ? selectedEvent.value.available_credits > 0
+    : organizerCreditBalance.value > 0
+})
+
+const styleProcessingDefaults = {
+  realistic: {
+    blur_sigma: 1.5,
+    min_region_pct: 0.03,
+    no_merge: false,
+  },
+  cartoonish: {
+    blur_sigma: 0,
+    min_region_pct: 0,
+    no_merge: true,
+  },
+}
 
 // 'auto' | 'preset' | 'byop'
 const paletteMode = ref('auto')
@@ -44,15 +69,30 @@ const params = ref({
   user_palette_hex: [],
 })
 
+watch(style, (selectedStyle) => {
+  outputMode.value = selectedStyle === 'cartoonish' ? 'outline_only' : 'paint_by_numbers'
+  params.value = {
+    ...params.value,
+    ...styleProcessingDefaults[selectedStyle],
+  }
+})
+
+watch(canUseCartoonish, (eligible) => {
+  if (!eligible && style.value === 'cartoonish') style.value = 'realistic'
+})
+
 onMounted(async () => {
   if (!auth.hydrated) await auth.hydrate()
   if (!auth.isAuthenticated || eventContext.isActive) return
   try {
-    organizerEvents.value = (await listOrganizerEvents()).filter((event) => event.accepts_new_generations)
+    const [events, balance] = await Promise.all([listOrganizerEvents(), getCreditBalance()])
+    organizerEvents.value = events.filter((event) => event.accepts_new_generations)
+    organizerCreditBalance.value = balance.available_credits ?? 0
     const requestedEventId = String(route.query.eventId ?? '')
     if (organizerEvents.value.some((event) => event.id === requestedEventId)) selectedEventId.value = requestedEventId
   } catch {
     organizerEvents.value = []
+    organizerCreditBalance.value = 0
   }
 })
 
@@ -110,6 +150,8 @@ async function submit() {
     formData.append('image', selectedFile.value)
     if (kitName.value.trim()) formData.append('kit_name', kitName.value.trim())
     if (selectedEventId.value) formData.append('event_id', selectedEventId.value)
+    formData.append('style', style.value)
+    formData.append('output_mode', outputMode.value)
 
     // Append each param
     // A selected preset/BYOP palette defines the number of colours to use.
@@ -160,7 +202,16 @@ async function submit() {
 
     <FileDropzone @file-selected="onFileSelected" />
 
+    <StyleSelector
+      v-if="cartoonStyleEnabled"
+      :style="style"
+      :canUseCartoonish="canUseCartoonish"
+      cartoonishDisabledReason="Only registered event hosts with credits can use this feature."
+      @update:style="style = $event"
+    />
+
     <PaletteSelector
+      v-if="style === 'realistic'"
       :params="params"
       :paletteMode="paletteMode"
       :palettes="palettes"
