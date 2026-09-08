@@ -1,0 +1,15 @@
+[build-system]
+requires = ["maturin>=1.8,<2"]
+build-backend = "maturin"
+
+[project]
+name = "paintober-native"
+version = "0.1.0"
+description = "Native Rust acceleration for Paintober pipeline helpers"
+requires-python = ">=3.13,<3.14"
+dependencies = ["numpy>=2.4.4,<3"]
+
+[tool.maturin]
+manifest-path = "Cargo.toml"
+module-name = "paintober_native"
+bindings = "pyo3"

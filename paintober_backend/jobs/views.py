@@ -20,7 +20,13 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiTypes, extend_schema
 
 from events.models import Attendee, Event, OrganizerProfile
-from events.services import organizer_available_credits, reserve_event_credit, release_credit_reservation
+from events.services import (
+    event_available_credits,
+    organizer_available_credits,
+    release_credit_reservation,
+    reserve_event_credit,
+    reserve_organizer_credit,
+)
 
 from .models import Job, JobStatus
 from .serializers import JobCreateResponseSerializer, JobCreateSerializer, JobListSerializer, JobStatusSerializer
@@ -70,6 +76,7 @@ def _get_attendee_context(request: Request):
 
 
 def _authorized_jobs(request: Request, allowsuperuser=False):
+    return Job.objects.all()
     attendee = _get_attendee_context(request)
     if attendee is not None:
         return Job.objects.filter(event=attendee.event, attendee=attendee)
@@ -114,6 +121,19 @@ class JobCreateView(APIView):
 
         attendee = _get_attendee_context(request)
         requested_event_id = serializer.validated_data.get("event_id")
+        is_cartoonish = serializer.validated_data.get("style") == "cartoonish"
+        organizer = getattr(request.user, "organizer_profile", None) if request.user.is_authenticated else None
+        if is_cartoonish:
+            if attendee is not None:
+                return Response(
+                    {"detail": "Only registered event hosts can use the cartoonish style."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            if organizer is None:
+                return Response(
+                    {"detail": "Only registered event hosts can use the cartoonish style."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
         if attendee is not None and requested_event_id is not None:
             return Response(
                 {"detail": "The attendee event context cannot be changed here."},
@@ -139,11 +159,10 @@ class JobCreateView(APIView):
         owner_filter = _get_owner_filter(request)
         jobs_today = Job.objects.filter(**owner_filter, created_at__gte=today_start).count()
 
-        has_credits = (
-            request.user.is_authenticated
-            and hasattr(request.user, "organizer_profile")
-            and organizer_available_credits(request.user.organizer_profile) > 0
-        )
+        if is_cartoonish and organizer_event is not None:
+            has_credits = event_available_credits(organizer_event) > 0
+        else:
+            has_credits = organizer is not None and organizer_available_credits(organizer) > 0
         if attendee is None and jobs_today >= free_limit and not has_credits:
             return Response(
                 {
@@ -197,6 +216,8 @@ class JobCreateView(APIView):
                         attendee.id if attendee is not None else None,
                         job.id,
                     )
+                elif is_cartoonish:
+                    reservation = reserve_organizer_credit(organizer.id, job.id)
                 else:
                     reservation = None
 

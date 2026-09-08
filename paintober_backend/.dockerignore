@@ -9,7 +9,6 @@ logs/
 staticfiles/
 .git/
 .gitignore
-Dockerfile*
 README*
 tests/
 gcloud/

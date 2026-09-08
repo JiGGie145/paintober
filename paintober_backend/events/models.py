@@ -153,7 +153,13 @@ class CreditReservationStatus(models.TextChoices):
 class CreditReservation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organizer = models.ForeignKey(OrganizerProfile, on_delete=models.PROTECT, related_name="reservations")
-    event = models.ForeignKey(Event, on_delete=models.PROTECT, related_name="reservations")
+    event = models.ForeignKey(
+        Event,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="reservations",
+    )
     attendee = models.ForeignKey(Attendee, null=True, blank=True, on_delete=models.PROTECT, related_name="reservations")
     job_id = models.UUIDField(null=True, blank=True, unique=True)
     quantity = models.PositiveIntegerField(default=1)

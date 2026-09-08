@@ -11,6 +11,11 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from datetime import timedelta
+import time
+
+_settings_started = time.perf_counter()
+print("BOOT settings.py entered", flush=True)
+
 from decouple import Csv, config
 from pathlib import Path
 
@@ -322,3 +327,8 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+print(
+    f"BOOT settings.py complete elapsed={time.perf_counter() - _settings_started:.3f}s",
+    flush=True,
+)

@@ -1,4 +1,7 @@
 import unittest
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 
@@ -10,10 +13,61 @@ from .processor import (
     preprocess_image,
     relabel_contiguous,
     rgb_to_lch,
+    run_pipeline,
 )
 
 
 class ProcessorTests(unittest.TestCase):
+    @patch("pipeline.processor.load_image")
+    @patch("pipeline.cartoon_generator.generate_cartoon_image")
+    def test_cartoonish_outline_only_skips_color_pipeline(
+        self, generate_cartoon_image, load_image
+    ):
+        image = np.zeros((12, 12, 3), dtype=np.uint8)
+        image[3:9, 3:9] = (255, 255, 255)
+        load_image.return_value = image
+
+        with tempfile.TemporaryDirectory() as directory:
+            cartoon_path = Path(directory) / "cartoon_input.png"
+            cartoon_path.write_bytes(b"cartoon png")
+            generate_cartoon_image.return_value = str(cartoon_path)
+            outputs = run_pipeline(
+                "input.png",
+                Path(directory),
+                {"style": "cartoonish", "output_mode": "outline_only"},
+            )
+
+            generate_cartoon_image.assert_called_once_with("input.png", cartoon_path)
+            self.assertEqual(
+                set(outputs), {"output_outline", "output_color", "output_zip"}
+            )
+            self.assertTrue(Path(outputs["output_outline"]).is_file())
+            self.assertTrue(Path(outputs["output_color"]).is_file())
+            self.assertTrue(Path(outputs["output_zip"]).is_file())
+
+    def test_run_pipeline_generates_all_assets_for_real_image(self):
+        image_path = Path(__file__).resolve().parents[2] / "v0.1" / "sonnet5" / "input.jpeg"
+
+        with tempfile.TemporaryDirectory() as directory:
+            outputs = run_pipeline(
+                str(image_path),
+                Path(directory),
+                {
+                    "k_colors": 4,
+                    "min_region_pct": 0,
+                    "line_thickness": 1,
+                    "smooth_method": "gaussian",
+                    "blur_sigma": 1.0,
+                },
+            )
+
+            for output in outputs.values():
+                self.assertTrue(Path(output).is_file(), output)
+            self.assertGreater(Path(outputs["output_outline"]).stat().st_size, 0)
+            self.assertGreater(Path(outputs["output_color"]).stat().st_size, 0)
+            self.assertGreater(Path(outputs["output_palette"]).stat().st_size, 0)
+            self.assertGreater(Path(outputs["output_zip"]).stat().st_size, 0)
+
     def test_preprocess_supports_all_smoothing_methods(self):
         image = np.zeros((12, 12, 3), dtype=np.uint8)
         image[4:8, 4:8] = (255, 80, 20)

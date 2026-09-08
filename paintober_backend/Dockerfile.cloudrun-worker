@@ -1,8 +1,26 @@
+FROM python:3.13-bookworm AS native-builder
+
+WORKDIR /src/rust/paintober_native
+COPY rust/paintober_native/Cargo.toml rust/paintober_native/Cargo.lock ./
+COPY rust/paintober_native/src ./src
+
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl build-essential \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+    && pip install 'maturin>=1.8,<2' 'numpy>=2.4.4,<3' \
+    && maturin build --release --interpreter python \
+    && mkdir -p /wheel \
+    && cp target/wheels/*.whl /wheel/
+
 FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    MPLBACKEND=Agg
+    MPLBACKEND=Agg \
+    PAINTOBER_MERGE_BACKEND=auto
 
 WORKDIR /app
 
@@ -13,14 +31,18 @@ RUN apt-get update \
         libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml poetry.lock ./
+COPY paintober_backend/pyproject.toml paintober_backend/poetry.lock ./
 
 RUN pip install --no-cache-dir poetry \
     && poetry config virtualenvs.create false \
     && poetry install --only main --no-root --no-interaction --no-ansi
 
-COPY . .
+COPY --from=native-builder /wheel/*.whl /tmp/
+RUN pip install --no-cache-dir /tmp/paintober_native-*.whl \
+    && rm -f /tmp/paintober_native-*.whl
+
+COPY paintober_backend/ ./
 
 # This image is intended for Cloud Run Jobs. It claims at most one pending
 # job, processes it, and exits so the job execution can be retried by Cloud Run.
-CMD ["python", "manage.py", "run_poll_and_process"]
+CMD ["sh", "-c", "date -u '+BOOT container process %Y-%m-%dT%H:%M:%S.%N UTC'; exec python manage.py run_poll_and_process"]

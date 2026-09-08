@@ -5,6 +5,7 @@ from rest_framework import serializers
 from djoser.serializers import UserCreateSerializer
 
 from .models import Attendee, Event, OrganizerProfile
+from .services import event_available_credits
 
 User = get_user_model()
 
@@ -91,14 +92,19 @@ class EventSerializer(serializers.ModelSerializer):
     token = serializers.CharField(source="public_token", read_only=True)
     accepts_new_generations = serializers.BooleanField(read_only=True)
     is_expired = serializers.BooleanField(read_only=True)
+    available_credits = serializers.SerializerMethodField()
 
     class Meta:
         model = Event
         fields = [
             "id", "name", "event_date", "token", "status", "otp_required",
             "max_kits_per_attendee", "branding", "accepts_new_generations", "is_expired",
+            "available_credits",
         ]
         read_only_fields = ["id", "token", "status", "accepts_new_generations", "is_expired"]
+
+    def get_available_credits(self, obj):
+        return event_available_credits(obj)
 
 
 class EventCreateSerializer(serializers.ModelSerializer):

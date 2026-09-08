@@ -7,11 +7,15 @@ Entry point: run_pipeline(image_path, output_dir, params) -> dict
 
 import io
 import logging
+import os
 import time
 import zipfile
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
+
+_pipeline_import_started = time.perf_counter()
+print("BOOT pipeline dependencies import entered", flush=True)
 
 import cv2
 import matplotlib
@@ -23,6 +27,11 @@ from scipy import ndimage
 from skimage.color import delta_e as skimage_delta_e
 from skimage.color import rgb2lab
 from sklearn.cluster import KMeans
+
+print(
+    f"BOOT pipeline dependencies complete elapsed={time.perf_counter() - _pipeline_import_started:.3f}s",
+    flush=True,
+)
 
 logger = logging.getLogger("pipeline")
 
@@ -148,7 +157,7 @@ def quantize_colors(
     return label_map, palette
 
 
-def merge_small_regions(
+def _merge_small_regions_python(
     label_map: np.ndarray,
     min_region_pixels: int,
 ) -> np.ndarray:
@@ -213,6 +222,37 @@ def merge_small_regions(
             break
 
     return label_map
+
+
+def merge_small_regions(
+    label_map: np.ndarray,
+    min_region_pixels: int,
+) -> np.ndarray:
+    """Merge small connected components using the configured backend.
+
+    ``PAINTOBER_MERGE_BACKEND`` accepts ``auto`` (the default), ``native``,
+    or ``python``. Native execution is attempted lazily so importing the
+    pipeline does not require the optional Rust extension. The Python
+    implementation remains the fallback when the extension is unavailable.
+    """
+    backend = os.environ.get("PAINTOBER_MERGE_BACKEND", "auto").lower()
+    if backend not in {"auto", "native", "python"}:
+        raise ValueError(
+            "PAINTOBER_MERGE_BACKEND must be one of: auto, native, python"
+        )
+    if backend == "python":
+        return _merge_small_regions_python(label_map, min_region_pixels)
+
+    try:
+        from paintober_native import merge_small_regions as native_merge
+    except ImportError as exc:
+        if backend == "native":
+            raise RuntimeError(
+                "PAINTOBER_MERGE_BACKEND=native requires the paintober_native extension"
+            ) from exc
+        return _merge_small_regions_python(label_map, min_region_pixels)
+
+    return native_merge(label_map, min_region_pixels)
 
 
 def relabel_contiguous(

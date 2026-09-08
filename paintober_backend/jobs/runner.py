@@ -1,15 +1,29 @@
 import logging
 import tempfile
+import time
 from pathlib import Path
+
+_runner_import_started = time.perf_counter()
+print("BOOT jobs.runner import entered", flush=True)
 
 from django.conf import settings
 from django.db import transaction
+
+print(
+    f"BOOT runner Django imports complete elapsed={time.perf_counter() - _runner_import_started:.3f}s",
+    flush=True,
+)
 
 from events.services import finalize_credit_reservation, release_credit_reservation
 
 from jobs.models import Job, JobStatus
 from jobs.storage import get_job_storage
 from pipeline.processor import run_pipeline
+
+print(
+    f"BOOT runner imports complete elapsed={time.perf_counter() - _runner_import_started:.3f}s",
+    flush=True,
+)
 
 logger = logging.getLogger("jobs")
 
@@ -22,6 +36,8 @@ def poll_and_process() -> None:
     Note: SQLite does not support SKIP LOCKED — safe here because we run a
     single scheduler process. Upgrading to PostgreSQL enables full support.
     """
+    job_started = time.perf_counter()
+    print("JOB database claim started", flush=True)
     with transaction.atomic():
         try:
             job = (
@@ -46,16 +62,35 @@ def poll_and_process() -> None:
         job.save(update_fields=["status", "updated_at"])
         job_id = str(job.id)
 
+    print(
+        f"JOB claimed job_id={job_id} elapsed={time.perf_counter() - job_started:.3f}s",
+        flush=True,
+    )
     logger.info("Job claimed | job_id=%s retry=%d", job_id, job.retry_count)
 
     try:
+        print("JOB storage initialization started", flush=True)
         storage = get_job_storage()
+        print(
+            f"JOB storage initialized elapsed={time.perf_counter() - job_started:.3f}s",
+            flush=True,
+        )
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
             image_path = temp_root / "input.png"
             output_dir = temp_root / "outputs"
+            print("JOB input download started", flush=True)
             storage.download_upload(job.input_file, image_path)
+            print(
+                f"JOB input download complete elapsed={time.perf_counter() - job_started:.3f}s",
+                flush=True,
+            )
+            print("JOB pipeline started", flush=True)
             result = run_pipeline(str(image_path), output_dir, job.parameters)
+            print(
+                f"JOB pipeline complete elapsed={time.perf_counter() - job_started:.3f}s",
+                flush=True,
+            )
 
             output_keys = {
                 "output_outline": f"{settings.GCS_OBJECT_PREFIX}/{job_id}/outputs/outline.png" if settings.GCS_ENABLED else f"outputs/{job_id}/outline.png",
@@ -69,12 +104,17 @@ def poll_and_process() -> None:
                 "output_palette": "image/png",
                 "output_zip": "application/zip",
             }
+            print("JOB output uploads started", flush=True)
             stored_outputs = {
                 field: storage.save_result(
                     output_keys[field], Path(result[field]), content_types[field]
                 )
                 for field in output_keys
             }
+            print(
+                f"JOB output uploads complete elapsed={time.perf_counter() - job_started:.3f}s",
+                flush=True,
+            )
 
         with transaction.atomic():
             job.refresh_from_db()
