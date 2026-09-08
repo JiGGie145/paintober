@@ -76,7 +76,6 @@ def _get_attendee_context(request: Request):
 
 
 def _authorized_jobs(request: Request, allowsuperuser=False):
-    return Job.objects.all()
     attendee = _get_attendee_context(request)
     if attendee is not None:
         return Job.objects.filter(event=attendee.event, attendee=attendee)

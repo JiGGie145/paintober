@@ -15,6 +15,7 @@ print(
 )
 
 from events.services import finalize_credit_reservation, release_credit_reservation
+from events.models import CreditReservation
 
 from jobs.models import Job, JobStatus
 from jobs.storage import get_job_storage
@@ -92,11 +93,16 @@ def poll_and_process() -> None:
                 flush=True,
             )
 
+            output_filenames = {
+                "output_outline": "outline.png",
+                "output_color": "quantized_color.png",
+                "output_palette": "palette.png",
+                "output_zip": "results.zip",
+            }
             output_keys = {
-                "output_outline": f"{settings.GCS_OBJECT_PREFIX}/{job_id}/outputs/outline.png" if settings.GCS_ENABLED else f"outputs/{job_id}/outline.png",
-                "output_color": f"{settings.GCS_OBJECT_PREFIX}/{job_id}/outputs/quantized_color.png" if settings.GCS_ENABLED else f"outputs/{job_id}/quantized_color.png",
-                "output_palette": f"{settings.GCS_OBJECT_PREFIX}/{job_id}/outputs/palette.png" if settings.GCS_ENABLED else f"outputs/{job_id}/palette.png",
-                "output_zip": f"{settings.GCS_OBJECT_PREFIX}/{job_id}/outputs/results.zip" if settings.GCS_ENABLED else f"outputs/{job_id}/results.zip",
+                field: f"{settings.GCS_OBJECT_PREFIX}/{job_id}/outputs/{filename}" if settings.GCS_ENABLED else f"outputs/{job_id}/{filename}"
+                for field, filename in output_filenames.items()
+                if field in result
             }
             content_types = {
                 "output_outline": "image/png",
@@ -120,14 +126,14 @@ def poll_and_process() -> None:
             job.refresh_from_db()
             job.status = JobStatus.DONE
             job.output_outline = stored_outputs["output_outline"]
-            job.output_color = stored_outputs["output_color"]
-            job.output_palette = stored_outputs["output_palette"]
-            job.output_zip = stored_outputs["output_zip"]
+            job.output_color = stored_outputs.get("output_color", "")
+            job.output_palette = stored_outputs.get("output_palette", "")
+            job.output_zip = stored_outputs.get("output_zip", "")
             job.save(update_fields=[
                 "status", "output_outline", "output_color",
                 "output_palette", "output_zip", "updated_at",
             ])
-            if job.event_id:
+            if CreditReservation.objects.filter(job_id=job.id).exists():
                 finalize_credit_reservation(job.id)
 
         logger.info("Job done | job_id=%s", job_id)
@@ -152,5 +158,5 @@ def poll_and_process() -> None:
                     job_id, job.retry_count,
                 )
             job.save(update_fields=["status", "retry_count", "error_message", "updated_at"])
-            if job.status == JobStatus.FAILED and job.event_id:
+            if job.status == JobStatus.FAILED and CreditReservation.objects.filter(job_id=job.id).exists():
                 release_credit_reservation(job.id, note=str(exc))

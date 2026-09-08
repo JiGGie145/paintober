@@ -334,6 +334,18 @@ def build_colored_image(label_map: np.ndarray, palette: np.ndarray) -> np.ndarra
     return palette[label_map]
 
 
+def build_cartoon_outline_image(img: np.ndarray, line_thickness: int = 1) -> np.ndarray:
+    """Render a simple coloring outline from the generated cartoon image."""
+    grayscale = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    edges = cv2.Canny(grayscale, 80, 160)
+    if line_thickness > 1:
+        kernel = np.ones((line_thickness, line_thickness), dtype=np.uint8)
+        edges = cv2.dilate(edges, kernel)
+    canvas = np.full((*edges.shape, 3), 255, dtype=np.uint8)
+    canvas[edges > 0] = OUTLINE_GREY
+    return canvas
+
+
 def create_palette_image(palette: np.ndarray) -> np.ndarray:
     k = len(palette)
     fig, axes = plt.subplots(1, k, figsize=(max(k * 1.5, 6), 2.5))
@@ -565,7 +577,45 @@ def run_pipeline(image_path: str, output_dir: Path, params: Dict[str, Any]) -> D
     p = {**DEFAULTS, **params}
     pipeline_started = time.perf_counter()
 
-    logger.info("Pipeline start | image=%s k=%s", image_path, p["k_colors"])
+    style = p.get("style", "realistic")
+    output_mode = p.get("output_mode", "paint_by_numbers")
+    logger.info(
+        "Pipeline start | image=%s style=%s output_mode=%s k=%s",
+        image_path,
+        style,
+        output_mode,
+        p["k_colors"],
+    )
+
+    if style == "cartoonish":
+        if output_mode != "outline_only":
+            raise ValueError("Cartoonish jobs must use outline_only output.")
+
+        from .cartoon_generator import generate_cartoon_image
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+        cartoon_path = output_dir / "cartoon_input.png"
+        with timed_stage("generate_cartoon_image"):
+            generate_cartoon_image(image_path, cartoon_path)
+        with timed_stage("load_cartoon_image"):
+            cartoon_img = load_image(str(cartoon_path))
+        with timed_stage("render_cartoon_outline"):
+            cartoon_outline = build_cartoon_outline_image(
+                cartoon_img,
+                line_thickness=p["line_thickness"],
+            )
+
+        color_path = output_dir / "cartoon_color.png"
+        outline_path = output_dir / "outline.png"
+        cv2.imwrite(str(color_path), cv2.cvtColor(cartoon_img, cv2.COLOR_RGB2BGR))
+        cv2.imwrite(str(outline_path), cv2.cvtColor(cartoon_outline, cv2.COLOR_RGB2BGR))
+        asset_paths = {"cartoon_color.png": color_path, "outline.png": outline_path}
+        zip_path = create_zip(output_dir, asset_paths)
+        return {
+            "output_outline": str(outline_path),
+            "output_color": str(color_path),
+            "output_zip": str(zip_path),
+        }
 
     # Stage 1 — Load
     with timed_stage("load_image"):

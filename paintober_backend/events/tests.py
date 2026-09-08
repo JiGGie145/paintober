@@ -20,7 +20,13 @@ from .models import (
     LedgerEntryType,
     OrganizerProfile,
 )
-from .services import finalize_credit_reservation, release_credit_reservation, reserve_event_credit
+from .services import (
+    finalize_credit_reservation,
+    organizer_available_credits,
+    release_credit_reservation,
+    reserve_event_credit,
+    reserve_organizer_credit,
+)
 
 User = get_user_model()
 
@@ -269,6 +275,22 @@ class EventAccessApiTests(TestCase):
         second_job_id = "2b7f4d1b-45a6-4f0a-8a4f-2ac1d9e0f004"
         retry = reserve_event_credit(self.event.id, attendee.id, second_job_id)
         self.assertEqual(retry.status, CreditReservationStatus.RESERVED)
+
+    def test_personal_reservation_uses_organizer_credits(self):
+        job_id = "2b7f4d1b-45a6-4f0a-8a4f-2ac1d9e0f005"
+        reservation = reserve_organizer_credit(self.organizer.id, job_id)
+
+        self.assertIsNone(reservation.event)
+        self.assertEqual(reservation.organizer_id, self.organizer.id)
+        self.assertEqual(reservation.status, CreditReservationStatus.RESERVED)
+        self.assertEqual(
+            organizer_available_credits(self.organizer),
+            2,
+        )
+
+        finalize_credit_reservation(job_id)
+        reservation.refresh_from_db()
+        self.assertEqual(reservation.status, CreditReservationStatus.CONSUMED)
 
     def test_job_detail_is_scoped_to_event_attendee_context(self):
         attendee = Attendee.objects.create(event=self.event, phone_number="+27123456789")
